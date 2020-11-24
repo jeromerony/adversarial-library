@@ -1,0 +1,1 @@
+from .all_penalties import all_penalties
