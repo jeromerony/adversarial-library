@@ -230,7 +230,7 @@ def original_projection_l1(points_to_project, w_hyperplane, b_hyperplane):
 
 def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane: Tensor) -> Tensor:
     device = points_to_project.device
-    t, w, b = points_to_project.clone(), w_hyperplane.clone(), b_hyperplane.clone()
+    t, w, b = points_to_project, w_hyperplane.clone(), b_hyperplane
 
     c = (w * t).sum(1) - b
     ind2 = c < 0
@@ -277,7 +277,7 @@ def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
 
 def projection_l2(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane: Tensor) -> Tensor:
     device = points_to_project.device
-    t, w, b = points_to_project.clone(), w_hyperplane.clone(), b_hyperplane.clone()
+    t, w, b = points_to_project, w_hyperplane.clone(), b_hyperplane
 
     c = (w * t).sum(1) - b
     ind2 = c < 0
@@ -333,7 +333,7 @@ def projection_l2(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
 
 def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane: Tensor) -> Tensor:
     device = points_to_project.device
-    t, w, b = points_to_project.clone(), w_hyperplane.clone(), b_hyperplane.clone()
+    t, w, b = points_to_project, w_hyperplane.clone(), b_hyperplane.clone()
 
     sign = 2 * ((w * t).sum(1) - b >= 0) - 1
     w.mul_(sign.unsqueeze(1))
