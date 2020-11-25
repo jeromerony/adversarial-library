@@ -252,7 +252,7 @@ def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     c2 = s[:, -1] < 0
 
     lb = torch.zeros(c2.sum(), device=device)
-    ub = torch.full((c2.sum(),), s.shape[1], device=device, dtype=torch.float)
+    ub = torch.full_like(lb, s.shape[1])
     nitermax = math.ceil(math.log2(w.shape[1]))
 
     s_ = s[c2]
@@ -305,7 +305,7 @@ def projection_l2(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     c2 = ~c4 & ~c3
 
     lb = torch.zeros(c2.sum(), device=device)
-    ub = torch.full((c2.sum(),), w.shape[1] - 1, device=device, dtype=torch.float)
+    ub = torch.full_like(lb, w.shape[1] - 1)
     nitermax = math.ceil(math.log2(w.shape[1]))
 
     s_, c_ = s[c2], c[c2]
@@ -359,7 +359,7 @@ def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplan
     c_l = b - b2 > 0
     c2 = (b - b0 > 0) & (b - b2 <= 0)
     lb = torch.zeros(c2.sum(), device=device)
-    ub = torch.full((c2.sum(),), w.shape[1] - 1, device=device, dtype=torch.float)
+    ub = torch.full_like(lb, w.shape[1] - 1)
     nitermax = math.ceil(math.log2(w.shape[1]))
 
     indp_, sb_, s_, p_, b_ = indp[c2], sb[c2], s[c2], p[c2], b[c2]
