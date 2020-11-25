@@ -37,11 +37,13 @@ Alternatively, you can install (after cloning) the library in editable mode:
 Currently the following attacks are implemented in the `adv_lib.attacks` module:
 - Carlini and Wagner L2 and Linf https://arxiv.org/abs/1608.04644
 - Projected Gradien Descent (PGD) https://arxiv.org/abs/1706.06083
-- Decoupled Direction and Norm (DDN) https://arxiv.org/abs/1811.09600
+- **Decoupled Direction and Norm (DDN)** https://arxiv.org/abs/1811.09600
 - Fast Adaptive Boundary (FAB) https://arxiv.org/abs/1907.02044
 - Perceptual Color distance Alternating Loss (PerC-AL) https://arxiv.org/abs/1911.02466
 - Auto-PGD (APGD) https://arxiv.org/abs/2003.01690
-- Augmented Lagrangian Method for Adversarial (ALMA) 
+- **Augmented Lagrangian Method for Adversarial (ALMA)** https://arxiv.org/abs/2011.11857
+
+Bold means that this repository contains the official implementation.
 
 
 ### Distances
