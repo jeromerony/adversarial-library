@@ -6,7 +6,7 @@ from torch import nn, Tensor
 from torch.autograd import grad
 
 from adv_lib.distances.color_difference import ciede2000_loss
-from adv_lib.distances.lp_norms import l2_distances, l1_distances, linf_distances
+from adv_lib.distances.lp_norms import l2_distances, l1_distances
 from adv_lib.distances.lpips import LPIPS
 from adv_lib.distances.structural_similarity import ssim_loss, ms_ssim_loss
 from adv_lib.utils.losses import difference_of_logits_ratio
@@ -65,6 +65,67 @@ def alma(model: nn.Module,
          logit_tolerance: float = 1e-4,
          levels: Optional[int] = None,
          callback: Optional[VisdomLogger] = None) -> Tensor:
+    """
+    Augmented Lagrangian Method for Adversarial (ALMA) attack from https://arxiv.org/abs/2011.11857.
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to attack.
+    inputs : Tensor
+        Inputs to attack. Should be in [0, 1].
+    labels : Tensor
+        Labels corresponding to the inputs if untargeted, else target labels.
+    penalty : Callable
+        Penalty-Lagrangian function to use. A good default choice is P2 (see the original article).
+    targeted : bool
+        Whether to perform a targeted attack or not.
+    num_steps : int
+        Number of optimization steps. Corresponds to the number of forward and backward propagations.
+    lr_init : float
+        Initial learning rate.
+    lr_reduction : float
+        Reduction factor for the learning rate. The final learning rate is lr_init * lr_reduction
+    distance : str
+        Distance to use.
+    init_lr_distance : float
+        If a float is given, the initial learning rate will be calculated such that the first step results in an
+        increase of init_lr_distance of the distance to minimize. This corresponds to ε in the original article.
+    μ_init : float
+        Initial value of the penalty multiplier.
+    ρ_init : float
+        Initial value of the penalty parameter.
+    check_steps : int
+        Number of steps between checks for the improvement of the constraint. This corresponds to M in the original
+        article.
+    τ : float
+        Constraint improvement rate.
+    γ : float
+        Penalty parameter increase rate.
+    α : float
+        Weight for the exponential moving average.
+    α_rms : float
+        Smoothing constant for RMSProp. If none is provided, defaults to α.
+    momentum : float
+        Momentum for the RMSProp. If none is provided, defaults to α.
+    logit_tolerance : float
+        Small quantity added to the difference of logits to avoid solutions where the difference of logits is 0, which
+        can results in inconsistent class prediction (using argmax) on GPU. This can also be used as a confidence
+        parameter κ as in https://arxiv.org/abs/1608.04644, however, a confidence parameter on logits is not robust to
+        scaling of the logits.
+    levels : int
+        Number of levels for quantization. The attack will perform quantization only if the number of levels is
+        provided.
+    callback : VisdomLogger
+        Callback to visualize the progress of the algorithm.
+
+    Returns
+    -------
+    best_adv : Tensor
+        Perturbed inputs (inputs + perturbation) that are adversarial and have smallest distance with the original
+        inputs.
+
+    """
     device = inputs.device
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
