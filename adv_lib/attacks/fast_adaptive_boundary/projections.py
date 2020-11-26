@@ -233,16 +233,14 @@ def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     t, w, b = points_to_project, w_hyperplane.clone(), b_hyperplane
 
     c = (w * t).sum(1) - b
-    ind2 = c < 0
-    w[ind2] *= -1
-    c[ind2] *= -1
+    ind2 = 2 * (c >= 0) - 1
+    w.mul_(ind2.unsqueeze(1))
+    c.mul_(ind2)
 
-    r = torch.max(1 / w, -1 / w).clamp_max(1e12)
+    r = (1 / w).abs().clamp_max(1e12)
     indr = torch.argsort(r, dim=1)
     indr_rev = torch.argsort(indr)
 
-    u = torch.arange(0, w.shape[0], device=device).unsqueeze(1)
-    u2 = torch.arange(0, w.shape[1], device=device).repeat(w.shape[0], 1)
     c6 = (w < 0).float()
     d = (-t + c6) * (w != 0).float()
     ds = torch.min(-w * t, w * (1 - t)).gather(1, indr)
@@ -266,11 +264,14 @@ def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     lb2 = lb.long()
 
     if c2.any():
-        alpha = -s[c2, lb2] / w[c2, indr[c2, lb2]]
-        c5 = u2[c2].float() < lb.unsqueeze(-1).float()
+        indr = indr[c2].gather(1, lb2.unsqueeze(1)).squeeze(1)
+        u = torch.arange(0, w.shape[0], device=device).unsqueeze(1)
+        u2 = torch.arange(0, w.shape[1], device=device, dtype=torch.float).unsqueeze(0)
+        alpha = -s[c2, lb2] / w[c2, indr]
+        c5 = u2 < lb.unsqueeze(-1)
         u3 = c5[u[:c5.shape[0]], indr_rev[c2]]
         d[c2] = d[c2] * u3.float()
-        d[c2, indr[c2, lb2]] = alpha
+        d[c2, indr] = alpha
 
     return d * (w.abs() > 1e-8).float()
 
@@ -280,29 +281,28 @@ def projection_l2(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     t, w, b = points_to_project, w_hyperplane.clone(), b_hyperplane
 
     c = (w * t).sum(1) - b
-    ind2 = c < 0
-    w[ind2] *= -1
-    c[ind2] *= -1
+    ind2 = 2 * (c >= 0) - 1
+    w.mul_(ind2.unsqueeze(1))
+    c.mul_(ind2)
 
     r = torch.max(t / w, (t - 1) / w).clamp(min=-1e12, max=1e12)
-    r[w.abs() < 1e-8] = 1e12
+    r.masked_fill_(w.abs() < 1e-8, 1e12)
     r[r == -1e12] *= -1
     rs, indr = torch.sort(r, dim=1)
     rs2 = F.pad(rs[:, 1:], (0, 1))
-    rs[rs == 1e12] = 0
-    rs2[rs2 == 1e12] = 0
+    rs.masked_fill_(rs == 1e12, 0)
+    rs2.masked_fill_(rs2 == 1e12, 0)
 
     w3s = (w ** 2).gather(1, indr)
     w5 = w3s.sum(dim=1, keepdim=True)
     ws = w5 - torch.cumsum(w3s, dim=1)
     d = -(r * w)
     d.mul_((w.abs() > 1e-8).float())
-    s = torch.cat(((-w5.squeeze() * rs[:, 0]).unsqueeze(1),
-                   torch.cumsum((-rs2 + rs) * ws, dim=1) - w5 * rs[:, 0].unsqueeze(-1)), 1)
+    s = torch.cat((-w5 * rs[:, 0:1], torch.cumsum((-rs2 + rs) * ws, dim=1) - w5 * rs[:, 0:1]), 1)
 
     c4 = s[:, 0] + c < 0
     c3 = (d * w).sum(dim=1) + c > 0
-    c2 = ~c4 & ~c3
+    c2 = ~(c4 | c3)
 
     lb = torch.zeros(c2.sum(), device=device)
     ub = torch.full_like(lb, w.shape[1] - 1)
@@ -355,9 +355,9 @@ def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplan
     s = torch.cumsum(ws.abs(), dim=1)
     sb = torch.cumsum(bs2, dim=1) + b0.unsqueeze(1)
 
-    b2 = sb[:, -1] - s[:, -1] * p.gather(1, indp[:, 0].unsqueeze(1)).squeeze(1)
+    b2 = sb[:, -1] - s[:, -1] * p.gather(1, indp[:, 0:1]).squeeze(1)
     c_l = b - b2 > 0
-    c2 = (b - b0 > 0) & (b - b2 <= 0)
+    c2 = (b - b0 > 0) & (~c_l)
     lb = torch.zeros(c2.sum(), device=device)
     ub = torch.full_like(lb, w.shape[1] - 1)
     nitermax = math.ceil(math.log2(w.shape[1]))
@@ -387,11 +387,13 @@ def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplan
 
 
 if __name__ == '__main__':
+    import numpy as np
+    from tqdm import trange
     device = torch.device('cuda:0')
     torch.manual_seed(42)
     torch.backends.cudnn.benchmark = True
 
-    n, d = 256, 1024 * 128
+    n, d = 512, 1024 * 128
     dtype = torch.float
 
     x = torch.rand(n * 2, d, device=device, dtype=dtype)
@@ -417,11 +419,17 @@ if __name__ == '__main__':
         'linf': projection_linf,
     }
     start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-    for name, projection in projections.items():
-        start.record()
-        out = projection(x, w, b)
-        end.record()
-        torch.cuda.synchronize()
-        time = (start.elapsed_time(end)) / 1000
+    timings = {k:[] for k in projections.keys()}
+    for _ in trange(10, desc='Running benchmark', ncols=80):
+        x = torch.rand(n * 2, d, device=device, dtype=dtype)
+        w = torch.randn(n, d, device=device, dtype=dtype).repeat(2, 1)
+        b = torch.randn(n, device=device, dtype=dtype).repeat(2)
+        for name, projection in projections.items():
+            start.record()
+            out = projection(x, w, b)
+            end.record()
+            torch.cuda.synchronize()
+            timings[name].append((start.elapsed_time(end)) / 1000)
 
-        print('Time for {}: {:.3g}s'.format(name, time))
+    for name, times in timings.items():
+        print('{} - time: average {:.4g} - std {:.3g}'.format(name, np.mean(times), np.std(times)))
