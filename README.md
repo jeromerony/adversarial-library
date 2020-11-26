@@ -8,6 +8,8 @@ While focused on attacks, this library also provides several utilities related t
 
 ### Dependencies
 
+The goal of this library is to be up-to-date with newer versions of PyTorch so the dependencies are expected to be updated regularly (possibly resulting in breaking changes).
+
 - pytorch>=1.6.0
 - torchvision>=0.7.0
 - tqdm>=4.48.0
@@ -35,13 +37,16 @@ Alternatively, you can install (after cloning) the library in editable mode:
 ### Attacks
 
 Currently the following attacks are implemented in the `adv_lib.attacks` module:
-- Carlini and Wagner L2 and Linf https://arxiv.org/abs/1608.04644
-- Projected Gradien Descent (PGD) https://arxiv.org/abs/1706.06083
-- **Decoupled Direction and Norm (DDN)** https://arxiv.org/abs/1811.09600
-- Fast Adaptive Boundary (FAB) https://arxiv.org/abs/1907.02044
-- Perceptual Color distance Alternating Loss (PerC-AL) https://arxiv.org/abs/1911.02466
-- Auto-PGD (APGD) https://arxiv.org/abs/2003.01690
-- **Augmented Lagrangian Method for Adversarial (ALMA)** https://arxiv.org/abs/2011.11857
+
+| Name                                                   | Knowledge | Distance(s)                                               | Link                             |
+|--------------------------------------------------------|-----------|-----------------------------------------------------------|----------------------------------|
+| Carlini and Wagner (C&W)                               | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1608.04644 |
+| Projected Gradien Descent (PGD)                        | White-box | L<sub>∞</sub>                                             | https://arxiv.org/abs/1706.06083 |
+| **Decoupled Direction and Norm (DDN)**                 | White-box | L<sub>2</sub>                                             | https://arxiv.org/abs/1811.09600 |
+| Fast Adaptive Boundary (FAB)                           | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/1907.02044 |
+| Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | CIEDE2000                                                 | https://arxiv.org/abs/1911.02466 |
+| Auto-PGD (APGD)                                        | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/2003.01690 |
+| **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | https://arxiv.org/abs/2011.11857 |
 
 Bold means that this repository contains the official implementation.
 
