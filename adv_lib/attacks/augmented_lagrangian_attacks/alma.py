@@ -14,7 +14,27 @@ from adv_lib.utils.optimizers import RMSprop
 from adv_lib.utils.visdom_logger import VisdomLogger
 
 
-def init_lr_finder(inputs: Tensor, grad: Tensor, distance_function: Callable, target_distance: float):
+def init_lr_finder(inputs: Tensor, grad: Tensor, distance_function: Callable, target_distance: float) -> Tensor:
+    """
+    Performs a line search and a binary search to find the learning rate η for each sample such that:
+    distance_function(inputs - η * grad) = target_distance.
+
+    Parameters
+    ----------
+    inputs : Tensor
+        Reference to compute the distance from.
+    grad : Tensor
+        Direction to step in.
+    distance_function : Callable
+    target_distance : float
+        Target distance that inputs - η * grad should reach.
+
+    Returns
+    -------
+    η : Tensor
+        Learning rate for each sample.
+
+    """
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     lr = torch.ones(batch_size, device=inputs.device)
