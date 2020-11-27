@@ -255,7 +255,7 @@ def _apgd(model: nn.Module,
         x_adv.detach_(), loss_indiv.detach_()
 
         is_adv = (logits.argmax(1) == labels) if targeted else (logits.argmax(1) != labels)
-        adv_found = adv_found | is_adv
+        adv_found.logical_or_(is_adv)
         adv_found_steps[i + 1] = adv_found
         x_best_adv[is_adv] = x_adv[is_adv]
 

@@ -151,7 +151,7 @@ def _fab(model: nn.Module,
         adv_inputs = ((adv_inputs + eta * d1) * (1 - alpha) + (inputs + d2 * eta) * alpha).clamp(min=0, max=1)
 
         is_adv = model(adv_inputs).argmax(1) != labels
-        adv_found.masked_fill_(is_adv, True)
+        adv_found.logical_or_(is_adv)
         adv_norm = (adv_inputs - inputs).flatten(1).norm(p=norm, dim=1)
         is_smaller = adv_norm < best_norm
         is_both = is_adv & is_smaller

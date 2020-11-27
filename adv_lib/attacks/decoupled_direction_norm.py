@@ -78,7 +78,7 @@ def ddn(model: nn.Module,
         is_adv = (pred_labels == labels) if targeted else (pred_labels != labels)
         is_smaller = l2 < best_l2
         is_both = is_adv & is_smaller
-        adv_found.masked_fill_(is_adv, True)
+        adv_found.logical_or_(is_adv)
         best_l2 = torch.where(is_both, l2, best_l2)
         best_δ = torch.where(batch_view(is_both), δ.detach(), best_δ)
 

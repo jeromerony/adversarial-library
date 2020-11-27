@@ -200,7 +200,7 @@ def alma(model: nn.Module,
         is_smaller = dist < best_dist
         is_both = is_adv & is_smaller
         step_found.masked_fill_((~adv_found) & is_adv, i)
-        adv_found.masked_fill_(is_adv, True)
+        adv_found.logical_or_(is_adv)
         best_dist = torch.where(is_both, dist.detach(), best_dist)
         best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 

@@ -113,9 +113,9 @@ def carlini_wagner_l2(model: nn.Module,
             o_is_both = is_adv & o_is_smaller
 
             best_l2 = torch.where(is_both, l2, best_l2)
-            adv_found.masked_fill_(is_both, True)
+            adv_found.logical_or_(is_both)
             o_best_l2 = torch.where(o_is_both, l2, o_best_l2)
-            o_adv_found.masked_fill_(is_both, True)
+            o_adv_found.logical_or_(is_both)
             o_best_adv = torch.where(batch_view(o_is_both), adv_inputs.detach(), o_best_adv)
 
             logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)

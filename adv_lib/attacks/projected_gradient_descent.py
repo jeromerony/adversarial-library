@@ -99,7 +99,7 @@ def _pgd_linf(model: nn.Module,
 
         is_adv = (logits.argmax(1) == labels) if targeted else (logits.argmax(1) != labels)
         δ_adv = torch.where(batch_view(is_adv), δ.detach(), δ_adv)
-        adv_found.masked_fill_(is_adv, True)
+        adv_found.logical_or_(is_adv)
 
         δ.data.add_(δ_grad.sign(), alpha=step_size)
         clamp(δ)

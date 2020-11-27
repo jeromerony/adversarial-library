@@ -116,7 +116,7 @@ def carlini_wagner_linf(model: nn.Module,
             is_adv = (predicted_classes == labels_) if targeted else (predicted_classes != labels_)
             is_smaller = linf < best_linf
             is_both = is_adv & is_smaller
-            adv_found.masked_fill_(is_both, True)
+            adv_found.logical_or_(is_both)
             best_linf = torch.where(is_both, linf, best_linf)
             best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
