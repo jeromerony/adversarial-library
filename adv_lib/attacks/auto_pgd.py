@@ -42,20 +42,20 @@ def apgd(model: nn.Module,
                           eot_iter=eot_iter, rho=rho)
 
     if not best_loss:
-        for counter in range(n_restarts):
+        for _ in range(n_restarts):
             if adv_found.all():
                 break
-
-            _, adv_found_run, _, adv_inputs_run = apgd_attack(inputs=inputs[~adv_found], labels=labels[~adv_found],
-                                                              eps=eps[~adv_found])
-            adv_inputs[~adv_found] = adv_inputs_run
-            adv_found[~adv_found] = adv_found_run
+            to_attack = ~adv_found
+            _, adv_found_run, _, adv_inputs_run = apgd_attack(inputs=inputs[to_attack], labels=labels[to_attack],
+                                                              eps=eps[to_attack])
+            adv_inputs[to_attack] = adv_inputs_run
+            adv_found[to_attack] = adv_found_run
 
     else:
         loss = torch.full_like(adv_found, -float('inf'), dtype=torch.float)
 
-        for counter in range(n_restarts):
-            adv_inputs_run, _, loss_run, _ = apgd_attack(inputs=inputs[adv_found], labels=labels[adv_found])
+        for _ in range(n_restarts):
+            adv_inputs_run, adv_found_run, loss_run, _ = apgd_attack(inputs=inputs, labels=labels, eps=eps)
 
             better_loss = loss_run > loss
             adv_inputs[better_loss] = adv_inputs_run[better_loss]
@@ -97,9 +97,9 @@ def apgd_targeted(model: nn.Module,
         targets = most_likely_classes[:, i]
 
         for counter in range(n_restarts):
-            to_attack = ~adv_found
             if adv_found.all():
                 break
+            to_attack = ~adv_found
 
             _, adv_found_run, _, adv_inputs_run = apgd_attack(inputs=inputs[to_attack], labels=targets[to_attack],
                                                               eps=eps[to_attack])
