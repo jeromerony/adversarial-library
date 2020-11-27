@@ -26,7 +26,7 @@ def apgd(model: nn.Module,
          targeted: bool = False,
          n_iter: int = 100,
          n_restarts: int = 1,
-         loss_function: str = 'ce',
+         loss_function: str = 'dlr',
          eot_iter: int = 1,
          rho: float = 0.75,
          best_loss: bool = False) -> Tensor:
@@ -71,6 +71,7 @@ def apgd_targeted(model: nn.Module,
                   norm: float,
                   n_iter: int = 100,
                   n_restarts: int = 1,
+                  loss_function: str = 'dlr',
                   eot_iter: int = 1,
                   rho: float = 0.75,
                   num_targets: Optional[int] = None,
@@ -86,7 +87,7 @@ def apgd_targeted(model: nn.Module,
     if isinstance(eps, (int, float)):
         eps = torch.full_like(adv_found, eps, dtype=torch.float)
 
-    apgd_attack = partial(_apgd, model=model, norm=norm, targeted=True, n_iter=n_iter, loss_function='dlr',
+    apgd_attack = partial(_apgd, model=model, norm=norm, targeted=True, n_iter=n_iter, loss_function=loss_function,
                           eot_iter=eot_iter, rho=rho)
 
     #  determine the number of classes based on the size of the model's output
@@ -118,6 +119,7 @@ def minimal_apgd(model: nn.Module,
                  targeted_version: bool = False,
                  n_iter: int = 100,
                  n_restarts: int = 1,
+                 loss_function: str = 'dlr',
                  eot_iter: int = 1,
                  rho: float = 0.75,
                  num_targets: Optional[int] = None,
@@ -133,10 +135,11 @@ def minimal_apgd(model: nn.Module,
     eps_low = torch.zeros_like(best_eps)
 
     if targeted_version:
-        attack = partial(apgd_targeted, model=model, norm=norm, n_iter=n_iter, n_restarts=n_restarts, eot_iter=eot_iter,
-                         rho=rho, num_targets=num_targets)
+        attack = partial(apgd_targeted, model=model, norm=norm, n_iter=n_iter, n_restarts=n_restarts,
+                         loss_function=loss_function, eot_iter=eot_iter, rho=rho, num_targets=num_targets)
     else:
-        attack = partial(apgd, model=model, norm=norm, n_iter=n_iter, n_restarts=n_restarts, eot_iter=eot_iter, rho=rho)
+        attack = partial(apgd, model=model, norm=norm, n_iter=n_iter, n_restarts=n_restarts,
+                         loss_function=loss_function, eot_iter=eot_iter, rho=rho)
 
     for _ in range(binary_search_steps):
         eps = (eps_low + best_eps) / 2
@@ -160,7 +163,7 @@ def _apgd(model: nn.Module,
           norm: float,
           targeted: bool = False,
           n_iter: int = 100,
-          loss_function: str = 'ce',
+          loss_function: str = 'dlr',
           eot_iter: int = 1,
           rho: float = 0.75) -> Tuple[Tensor, Tensor, Tensor, Tensor]:
     _loss_functions = {
