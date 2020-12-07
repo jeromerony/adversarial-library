@@ -47,9 +47,10 @@ def fab(model: nn.Module,
         if targeted_restarts:
             target_labels = topk_labels[:, i % n_target_classes]
             adv_inputs_run, adv_found_run, norm_run = fab_attack(
-                inputs=inputs, labels=labels, random_start=i >= n_target_classes, targets=target_labels)
+                inputs=inputs, labels=labels, random_start=i >= n_target_classes, targets=target_labels, u=best_norm)
         else:
-            adv_inputs_run, adv_found_run, norm_run = fab_attack(inputs=inputs, labels=labels, random_start=i != 0)
+            adv_inputs_run, adv_found_run, norm_run = fab_attack(inputs=inputs, labels=labels, random_start=i != 0,
+                                                                 u=best_norm)
 
         is_better_adv = adv_found_run & (norm_run < best_norm)
         best_norm[is_better_adv] = norm_run[is_better_adv]
@@ -92,10 +93,12 @@ def _fab(model: nn.Module,
          labels: Tensor,
          norm: float,
          n_iter: int = 100,
+         eps: Optional[float] = None,
          alpha_max: float = 0.1,
          eta: float = 1.05,
          beta: float = 0.9,
          random_start: bool = False,
+         u: Optional[Tensor] = None,
          targets: Optional[Tensor] = None) -> Tuple[Tensor, Tensor, Tensor]:
     _projection_dual_default_eps = {
         1: (projection_l1, float('inf'), 5),
@@ -106,7 +109,8 @@ def _fab(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(-1, *[1] * (inputs.ndim - 1))
-    projection, dual_norm, eps = _projection_dual_default_eps[norm]
+    projection, dual_norm, default_eps = _projection_dual_default_eps[norm]
+    eps = eps or default_eps
 
     logits = model(inputs)
     if targets is not None:
@@ -124,7 +128,7 @@ def _fab(model: nn.Module,
 
     adv_inputs = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
-    best_norm = torch.full((batch_size,), float('inf'), device=device, dtype=torch.float)
+    best_norm = u if u is not None else torch.full((batch_size,), float('inf'), device=device, dtype=torch.float)
     best_adv = inputs.clone()
 
     if random_start:
