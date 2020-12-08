@@ -162,6 +162,6 @@ def _fab(model: nn.Module,
         best_norm = torch.where(is_both, adv_norm, best_norm)
         best_adv = torch.where(batch_view(is_both), adv_inputs, best_adv)
 
-        adv_inputs = torch.where(batch_view(is_adv), (1 - beta) * inputs + beta * adv_inputs, adv_inputs)
+        adv_inputs = torch.where(batch_view(is_adv), inputs + (adv_inputs - inputs) * beta, adv_inputs)
 
     return best_adv, adv_found, best_norm
