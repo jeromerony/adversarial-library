@@ -5,3 +5,4 @@ from .decoupled_direction_norm import ddn
 from .fast_adaptive_boundary import fab
 from .perceptual_color_attacks import perc_al
 from .projected_gradient_descent import pgd_linf
+from .trust_region import tr

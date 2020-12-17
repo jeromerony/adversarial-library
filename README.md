@@ -43,6 +43,7 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 | Carlini and Wagner (C&W)                               | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1608.04644 |
 | Projected Gradien Descent (PGD)                        | White-box | L<sub>∞</sub>                                             | https://arxiv.org/abs/1706.06083 |
 | **Decoupled Direction and Norm (DDN)**                 | White-box | L<sub>2</sub>                                             | https://arxiv.org/abs/1811.09600 |
+| Trust Region (TR)                                      | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1812.06371 |
 | Fast Adaptive Boundary (FAB)                           | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/1907.02044 |
 | Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | CIEDE2000                                                 | https://arxiv.org/abs/1911.02466 |
 | Auto-PGD (APGD)                                        | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/2003.01690 |
