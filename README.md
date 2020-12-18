@@ -64,3 +64,16 @@ The following distances are available in the utils `adv_lib.distances` module:
 ## Contributions
 
 Suggestions and contributions are welcome :) 
+
+## Citation
+
+If this library has been useful for your research, you can cite it as follows:
+
+```
+@misc{rony2020adversarial,
+   title={Adversarial Library},
+   author={Rony, J{\'e}r{\^o}me and {Ben Ayed}, Ismail},
+   year={2020},
+   url={https://github.com/jeromerony/adversarial-library}
+}
+```
