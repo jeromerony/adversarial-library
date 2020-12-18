@@ -69,7 +69,7 @@ Suggestions and contributions are welcome :)
 
 If this library has been useful for your research, you can cite it as follows:
 
-```
+```bibtex
 @misc{rony2020adversarial,
    title={Adversarial Library},
    author={Rony, J{\'e}r{\^o}me and {Ben Ayed}, Ismail},
