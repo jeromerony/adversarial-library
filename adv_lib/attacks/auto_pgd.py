@@ -75,12 +75,9 @@ def apgd_targeted(model: nn.Module,
                   eot_iter: int = 1,
                   rho: float = 0.75,
                   num_targets: Optional[int] = None,
-                  seed: Optional[int] = None,
                   **kwargs) -> Tensor:
     device = inputs.device
     batch_size = len(inputs)
-    if seed is not None:
-        torch.manual_seed(seed)
 
     adv_inputs = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
@@ -123,12 +120,9 @@ def minimal_apgd(model: nn.Module,
                  eot_iter: int = 1,
                  rho: float = 0.75,
                  num_targets: Optional[int] = None,
-                 seed: Optional[int] = None,
                  **kwargs) -> Tensor:
     device = inputs.device
     batch_size = len(inputs)
-    if seed is not None:
-        torch.manual_seed(seed)
 
     adv_inputs = inputs.clone()
     best_eps = torch.full((batch_size,), 2 * max_eps, dtype=torch.float, device=device)

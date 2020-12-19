@@ -21,14 +21,10 @@ def fab(model: nn.Module,
         beta: float = 0.9,
         restarts: Optional[int] = None,
         targeted_restarts: bool = False,
-        seed: Optional[int] = None,
         targeted: bool = False) -> Tensor:
     if targeted:
         warnings.warn('FAB attack is untargeted only. Returning inputs.')
         return inputs
-
-    if seed is not None:
-        torch.manual_seed(seed=seed)
 
     best_adv = inputs.clone()
     best_norm = torch.full_like(labels, float('inf'), dtype=torch.float)
