@@ -35,7 +35,8 @@ def fab(model: nn.Module,
         logits = model(inputs)
         n_target_classes = logits.size(1) - 1
         labels_infhot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), float('inf'))
-        topk_labels = (logits - labels_infhot).topk(k=restarts or n_target_classes, dim=1).indices
+        k = min(restarts or n_target_classes, n_target_classes)
+        topk_labels = (logits - labels_infhot).topk(k=k, dim=1).indices
 
     n_restarts = restarts or (n_target_classes if targeted_restarts else 1)
     for i in range(n_restarts):
