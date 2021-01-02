@@ -48,6 +48,7 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 | Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | CIEDE2000                                                 | https://arxiv.org/abs/1911.02466 |
 | Auto-PGD (APGD)                                        | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/2003.01690 |
 | **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | https://arxiv.org/abs/2011.11857 |
+| Voting Folded Gaussian Attack (VFGA)                   | White-box | L<sub>0</sub>                                             | https://arxiv.org/abs/2011.12423 |
 
 Bold means that this repository contains the official implementation.
 
