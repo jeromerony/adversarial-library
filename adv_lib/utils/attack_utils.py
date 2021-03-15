@@ -161,7 +161,7 @@ def compute_attack_metrics(model: nn.Module,
         clean_preds, adv_preds = [predict_inputs(model, chunk.to(device)) for chunk in [inputs_chunk, adv_chunk]]
         list(map(append, all_predictions, [*clean_preds, *adv_preds]))
         for metric, metric_func in metrics.items():
-            distances[metric].append(metric_func(adv_chunk, inputs_chunk).cpu())
+            distances[metric].append(metric_func(adv_chunk, inputs_chunk).detach().cpu())
 
     logits, probs, preds, logits_adv, probs_adv, preds_adv = [torch.cat(l) for l in all_predictions]
     for metric in metrics.keys():
