@@ -1,5 +1,6 @@
 import warnings
 from collections import OrderedDict
+from distutils.version import LooseVersion
 from functools import partial
 from inspect import isclass
 from typing import Callable, Optional, Dict, Union
@@ -11,7 +12,7 @@ from torch import Tensor, nn
 from torch.nn import functional as F
 
 from adv_lib.distances.lp_norms import l0_distances, l1_distances, l2_distances, linf_distances
-from adv_lib.utils import PropagationCounter, predict_inputs
+from adv_lib.utils import ForwardCounter, BackwardCounter, predict_inputs
 
 
 def generate_random_targets(labels: Tensor, num_classes: int) -> Tensor:
@@ -88,9 +89,12 @@ def run_attack(model: nn.Module,
     not_adv = ~torch.cat(already_adv, 0)
 
     start, end = torch.cuda.Event(enable_timing=True), torch.cuda.Event(enable_timing=True)
-    forward_counter, backward_counter = PropagationCounter('forward'), PropagationCounter('backward')
-    model.register_forward_hook(forward_counter)
-    model.register_backward_hook(backward_counter)
+    forward_counter, backward_counter = ForwardCounter(), BackwardCounter()
+    model.register_forward_pre_hook(forward_counter)
+    if LooseVersion(torch.__version__) >= LooseVersion('1.8'):
+        model.register_full_backward_hook(backward_counter)
+    else:
+        model.register_backward_hook(backward_counter)
     average_forwards, average_backwards = [], []  # number of forward and backward calls per sample
     advs_chunks = []
     chunks = [tensor.split(batch_size) for tensor in [inputs[not_adv], adv_labels[not_adv]]]
@@ -208,7 +212,7 @@ def print_metrics(metrics: dict) -> None:
                         linewidth=120)  # To print arrays with less precision
     print('Original accuracy: {:.2%}'.format(metrics['accuracy_orig']))
     print('Attack done in: {:.2f}s with {:.4g} forwards and {:.4g} backwards.'.format(
-        metrics['time'], metrics['num_forwards'], metrics['num_backwards'] ))
+        metrics['time'], metrics['num_forwards'], metrics['num_backwards']))
     success = metrics['success'].numpy()
     fail = success.mean() != 1
     print('Attack success: {:.2%}'.format(success.mean()) + fail * ' - {}'.format(success))

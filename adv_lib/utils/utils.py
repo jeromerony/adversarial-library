@@ -5,20 +5,26 @@ import torch
 from torch import nn, Tensor
 
 
-class PropagationCounter:
-    def __init__(self, type: str):
-        self.type = type
+class ForwardCounter:
+    def __init__(self):
         self.reset()
-
-    def __call__(self, *args, **kwargs):
-        if self.type == 'forward':
-            batch_size = len(args[1][0])
-        elif self.type == 'backward':
-            batch_size = len(args[1][1])
-        self.num_samples_called += batch_size
 
     def reset(self):
         self.num_samples_called = 0
+
+    def __call__(self, module, input) -> None:
+        self.num_samples_called += len(input[0])
+
+
+class BackwardCounter:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.num_samples_called = 0
+
+    def __call__(self, module, grad_input, grad_output) -> None:
+        self.num_samples_called += len(grad_output[0])
 
 
 class ImageNormalizer(nn.Module):

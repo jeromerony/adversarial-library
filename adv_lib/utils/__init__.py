@@ -1,1 +1,1 @@
-from .utils import PropagationCounter, ImageNormalizer, normalize_model, predict_inputs, requires_grad_
+from .utils import ForwardCounter, BackwardCounter, ImageNormalizer, normalize_model, predict_inputs, requires_grad_
