@@ -10,8 +10,8 @@ While focused on attacks, this library also provides several utilities related t
 
 The goal of this library is to be up-to-date with newer versions of PyTorch so the dependencies are expected to be updated regularly (possibly resulting in breaking changes).
 
-- pytorch>=1.6.0
-- torchvision>=0.7.0
+- pytorch>=1.7.0
+- torchvision>=0.8.0
 - tqdm>=4.48.0
 - visdom>=0.1.8
 
