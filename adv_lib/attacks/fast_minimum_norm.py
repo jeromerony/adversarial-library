@@ -1,4 +1,5 @@
 # Adapted from https://github.com/maurapintor/Fast-Minimum-Norm-FMN-Attack
+
 import math
 from functools import partial
 from typing import Optional

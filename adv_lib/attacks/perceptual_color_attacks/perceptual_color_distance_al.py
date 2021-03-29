@@ -1,4 +1,5 @@
 # Adapted from https://github.com/ZhengyuZhao/PerC-Adversarial
+
 from math import pi, cos
 
 import torch

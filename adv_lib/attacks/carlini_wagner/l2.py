@@ -1,3 +1,5 @@
+# Adapted from https://github.com/carlini/nn_robust_attacks
+
 from typing import Tuple, Optional
 
 import torch

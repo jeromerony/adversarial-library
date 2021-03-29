@@ -1,3 +1,5 @@
+# Adapted from https://github.com/amirgholami/trattack
+
 import warnings
 from functools import partial
 from typing import Tuple
