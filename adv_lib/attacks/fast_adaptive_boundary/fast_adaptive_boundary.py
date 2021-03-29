@@ -16,12 +16,59 @@ def fab(model: nn.Module,
         labels: Tensor,
         norm: float,
         n_iter: int = 100,
-        alpha_max: float = 0.1,
-        eta: float = 1.05,
-        beta: float = 0.9,
+        α_max: float = 0.1,
+        β: float = 0.9,
+        η: float = 1.05,
         restarts: Optional[int] = None,
         targeted_restarts: bool = False,
         targeted: bool = False) -> Tensor:
+    """
+    Fast Adaptive Boundary (FAB) attack from https://arxiv.org/abs/1907.02044
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to attack.
+    inputs : Tensor
+        Inputs to attack. Should be in [0, 1].
+    labels : Tensor
+        Labels corresponding to the inputs if untargeted, else target labels.
+    norm : float
+        Norm to minimize in {1, 2 ,float('inf')}.
+    n_iter : int
+        Number of optimization steps. This does not correspond to the number of forward / backward propagations for this
+        attack. For a more comprehensive discussion on complexity, see section 4 of https://arxiv.org/abs/1907.02044 and
+        for a comparison of complexities, see https://arxiv.org/abs/2011.11857.
+        TL;DR: FAB performs 2 forwards and K - 1 (i.e. number of classes - 1) backwards per step in default mode. If
+        `targeted_restarts` is `True`, performs `2 * restarts` forwards and `restarts` or (K - 1) backwards per step.
+    α_max : float
+        Maximum weight for the biased  gradient step. α = 0 corresponds to taking the projection of the `adv_inputs` on
+        the decision hyperplane, while α = 1 corresponds to taking the projection of the `inputs` on the decision
+        hyperplane.
+    β : float
+        Weight for the biased backward step, i.e. a linear interpolation between `inputs` and `adv_inputs` at step i.
+        β = 0 corresponds to taking the original `inputs` and β = 1 corresponds to taking the `adv_inputs`.
+    η : float
+        Extrapolation for the optimization step. η = 1 corresponds to projecting the `adv_inputs` on the decision
+        hyperplane. η > 1 corresponds to overshooting to increase the probability of crossing the decision hyperplane.
+    restarts : int
+        Number of random restarts in default mode; starts from the inputs in the first run and then add random noise for
+        the consecutive restarts. Number of classes to attack if `targeted_restarts` is `True`.
+    targeted_restarts : bool
+        If `True`, performs targeted attack towards the most likely classes for the unperturbed `inputs`. If `restarts`
+        is not given, this will attack each class (except the original class). If `restarts` is given, the `restarts`
+        most likely classes will be attacked. If `restarts` is larger than K - 1, this will re-attack the most likely
+        classes with random noise.
+    targeted : bool
+        Placeholder argument for library. FAB is only for untargeted attacks, so setting this to True will raise a
+        warning and return the inputs.
+
+    Returns
+    -------
+    adv_inputs : Tensor
+        Modified inputs to be adversarial to the model.
+
+    """
     if targeted:
         warnings.warn('FAB attack is untargeted only. Returning inputs.')
         return inputs
@@ -29,7 +76,7 @@ def fab(model: nn.Module,
     best_adv = inputs.clone()
     best_norm = torch.full_like(labels, float('inf'), dtype=torch.float)
 
-    fab_attack = partial(_fab, model=model, norm=norm, n_iter=n_iter, alpha_max=alpha_max, eta=eta, beta=beta)
+    fab_attack = partial(_fab, model=model, norm=norm, n_iter=n_iter, α_max=α_max, β=β, η=η)
 
     if targeted_restarts:
         logits = model(inputs)
@@ -90,14 +137,14 @@ def _fab(model: nn.Module,
          labels: Tensor,
          norm: float,
          n_iter: int = 100,
-         eps: Optional[float] = None,
-         alpha_max: float = 0.1,
-         eta: float = 1.05,
-         beta: float = 0.9,
+         ε: Optional[float] = None,
+         α_max: float = 0.1,
+         β: float = 0.9,
+         η: float = 1.05,
          random_start: bool = False,
          u: Optional[Tensor] = None,
          targets: Optional[Tensor] = None) -> Tuple[Tensor, Tensor, Tensor]:
-    _projection_dual_default_eps = {
+    _projection_dual_default_ε = {
         1: (projection_l1, float('inf'), 5),
         2: (projection_l2, 2, 1),
         float('inf'): (projection_linf, 1, 0.3)
@@ -106,8 +153,8 @@ def _fab(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(-1, *[1] * (inputs.ndim - 1))
-    projection, dual_norm, default_eps = _projection_dual_default_eps[norm]
-    eps = eps or default_eps
+    projection, dual_norm, default_ε = _projection_dual_default_ε[norm]
+    ε = ε or default_ε
 
     logits = model(inputs)
     if targets is not None:
@@ -134,7 +181,7 @@ def _fab(model: nn.Module,
         elif norm in [1, 2]:
             t = torch.randn_like(inputs)
 
-        adv_inputs = inputs + 0.5 * t * batch_view(best_norm.clamp_max(eps) / t.flatten(1).norm(p=norm, dim=1))
+        adv_inputs = inputs + 0.5 * t * batch_view(best_norm.clamp_max(ε) / t.flatten(1).norm(p=norm, dim=1))
         adv_inputs.clamp_(min=0.0, max=1.0)
 
     for i in range(n_iter):
@@ -148,8 +195,8 @@ def _fab(model: nn.Module,
         a0 = batch_view(d3.flatten(1).norm(p=norm, dim=1).clamp_min(1e-8))
         a1, a2 = torch.chunk(a0, 2, dim=0)
 
-        alpha = (a1 / (a1 + a2)).clamp(min=0, max=alpha_max)
-        adv_inputs = ((adv_inputs + eta * d1) * (1 - alpha) + (inputs + d2 * eta) * alpha).clamp(min=0, max=1)
+        α = (a1 / (a1 + a2)).clamp(min=0, max=α_max)
+        adv_inputs = ((adv_inputs + η * d1) * (1 - α) + (inputs + d2 * η) * α).clamp(min=0, max=1)
 
         is_adv = model(adv_inputs).argmax(1) != labels
         adv_found.logical_or_(is_adv)
@@ -159,6 +206,6 @@ def _fab(model: nn.Module,
         best_norm = torch.where(is_both, adv_norm, best_norm)
         best_adv = torch.where(batch_view(is_both), adv_inputs, best_adv)
 
-        adv_inputs = torch.where(batch_view(is_adv), inputs + (adv_inputs - inputs) * beta, adv_inputs)
+        adv_inputs = torch.where(batch_view(is_adv), inputs + (adv_inputs - inputs) * β, adv_inputs)
 
     return best_adv, adv_found, best_norm
