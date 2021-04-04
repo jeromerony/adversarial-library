@@ -1,4 +1,6 @@
+# Adapted from https://github.com/pytorch/pytorch/pull/22289
 from functools import lru_cache
+from typing import Tuple
 
 import torch
 from torch import Tensor
@@ -7,7 +9,8 @@ from torch.nn.functional import conv2d, avg_pool2d
 
 
 @lru_cache
-def _fspecial_gaussian(size, channel, sigma, device, max_size):
+def _fspecial_gaussian(size: int, channel: int, sigma: float, device: torch.device,
+                       max_size: Tuple[int, int]) -> Tensor:
     coords = -(torch.arange(size, device=device) - (size - 1) / 2) ** 2 / (2. * sigma ** 2)
     if max(max_size) <= size:
         coords_x, coords_y = torch.zeros(max_size[0], device=device), torch.zeros(max_size[1], device=device)
@@ -24,7 +27,8 @@ def _fspecial_gaussian(size, channel, sigma, device, max_size):
     return kernel
 
 
-def _ssim(input, target, max_val, k1, k2, channel, kernel):
+def _ssim(input: Tensor, target: Tensor, max_val: float, k1: float, k2: float, channel: int,
+          kernel: Tensor) -> Tuple[Tensor, Tensor]:
     c1 = (k1 * max_val) ** 2
     c2 = (k2 * max_val) ** 2
 
@@ -46,15 +50,9 @@ def _ssim(input, target, max_val, k1, k2, channel, kernel):
     return ssim, v1 / v2
 
 
-def ssim(input, target, max_val, filter_size=11, k1=0.01, k2=0.03,
-         sigma=1.5, size_average=None, reduce=None, reduction='mean'):
-    # type: (Tensor, Tensor, float, int, float, float, float, Optional[bool], Optional[bool], str) -> Tensor
-    r"""ssim_loss(input, target, max_val, filter_size, k1, k2,
-                  sigma, size_average=None, reduce=None, reduction='mean') -> Tensor
-    Measures the structural similarity index (SSIM) error.
-    See :class:`~torch.nn.SSIMLoss` for details.
-    """
-
+def ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11, k1: float = 0.01, k2: float = 0.03,
+         sigma: float = 1.5, size_average=None, reduce=None, reduction: str = 'mean') -> Tensor:
+    """Measures the structural similarity index (SSIM) error."""
     dim = input.dim()
     if dim != 4:
         raise ValueError('Expected 4 dimensions (got {})'.format(dim))
@@ -84,15 +82,9 @@ def ssim_loss(*args, **kwargs) -> Tensor:
     return 1 - compute_ssim(*args, **kwargs)
 
 
-def ms_ssim(input, target, max_val, filter_size=11, k1=0.01, k2=0.03,
-            sigma=1.5, size_average=None, reduce=None, reduction='mean'):
-    # type: (Tensor, Tensor, float, int, float, float, float, Optional[bool], Optional[bool], str) -> Tensor
-    r"""ms_ssim_loss(input, target, max_val, filter_size, k1, k2,
-                     sigma, size_average=None, reduce=None, reduction='mean') -> Tensor
-    Measures the multi-scale structural similarity index (MS-SSIM) error.
-    See :class:`~torch.nn.MSSSIMLoss` for details.
-    """
-
+def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11, k1: float = 0.01, k2: float = 0.03,
+            sigma: float = 1.5, size_average=None, reduce=None, reduction: str = 'mean') -> Tensor:
+    """Measures the multi-scale structural similarity index (MS-SSIM) error."""
     dim = input.dim()
     if dim != 4:
         raise ValueError('Expected 4 dimensions (got {}) from input'.format(dim))
