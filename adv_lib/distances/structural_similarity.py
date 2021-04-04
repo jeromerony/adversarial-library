@@ -113,7 +113,13 @@ def ms_ssim(input, target, max_val, filter_size=11, k1=0.01, k2=0.03,
     levels = weights.size(0)
     mssim = []
     mcs = []
-    for _ in range(levels):
+    for i in range(levels):
+
+        if i:
+            # Use adaptive_avg_pool2d to handle images smaller than 32x32
+            input = adaptive_avg_pool2d(input, (ceil(input.shape[2] / 2), ceil(input.shape[3] / 2)))
+            target = adaptive_avg_pool2d(target, (ceil(target.shape[2] / 2), ceil(target.shape[3] / 2)))
+
         if min(size := input.shape[-2:]) <= filter_size:
             kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=size)
 
@@ -122,10 +128,6 @@ def ms_ssim(input, target, max_val, filter_size=11, k1=0.01, k2=0.03,
         cs = cs.mean((2, 3))
         mssim.append(ssim)
         mcs.append(cs)
-
-        # Use adaptive_avg_pool2d to handle images smaller than 32x32
-        input = adaptive_avg_pool2d(input, (ceil(input.shape[2] / 2), ceil(input.shape[3] / 2)))
-        target = adaptive_avg_pool2d(target, (ceil(target.shape[2] / 2), ceil(target.shape[3] / 2)))
 
     mssim = torch.stack(mssim)
     mcs = torch.stack(mcs)
