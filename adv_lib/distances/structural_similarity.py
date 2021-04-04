@@ -1,10 +1,9 @@
 from functools import lru_cache
-from math import ceil
 
 import torch
 from torch import Tensor
 from torch.nn import _reduction as _Reduction
-from torch.nn.functional import conv2d, adaptive_avg_pool2d
+from torch.nn.functional import conv2d, avg_pool2d
 
 
 @lru_cache
@@ -116,9 +115,8 @@ def ms_ssim(input, target, max_val, filter_size=11, k1=0.01, k2=0.03,
     for i in range(levels):
 
         if i:
-            # Use adaptive_avg_pool2d to handle images smaller than 32x32
-            input = adaptive_avg_pool2d(input, (ceil(input.shape[2] / 2), ceil(input.shape[3] / 2)))
-            target = adaptive_avg_pool2d(target, (ceil(target.shape[2] / 2), ceil(target.shape[3] / 2)))
+            input = avg_pool2d(input, kernel_size=2, ceil_mode=True)
+            target = avg_pool2d(target, kernel_size=2, ceil_mode=True)
 
         if min(size := input.shape[-2:]) <= filter_size:
             kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=size)
