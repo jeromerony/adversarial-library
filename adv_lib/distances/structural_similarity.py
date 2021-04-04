@@ -1,3 +1,4 @@
+from functools import lru_cache
 from math import ceil
 
 import torch
@@ -6,6 +7,7 @@ from torch.nn import _reduction as _Reduction
 from torch.nn.functional import conv2d, adaptive_avg_pool2d
 
 
+@lru_cache
 def _fspecial_gaussian(size, channel, sigma, device, max_size):
     coords = -(torch.arange(size, device=device) - (size - 1) / 2) ** 2 / (2. * sigma ** 2)
     if max(max_size) <= size:
