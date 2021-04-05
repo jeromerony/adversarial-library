@@ -5,9 +5,6 @@ from torch import Tensor
 
 from adv_lib.utils.color_conversions import rgb_to_cielab
 
-rad2deg = lambda x: x * 180 / math.pi
-deg2rad = lambda x: x * math.pi / 180
-
 
 def cie94_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C: float = 1, k_H: float = 1,
                            K_1: float = 0.045, K_2: float = 0.015, squared: bool = False, ε: float = 0) -> Tensor:
@@ -89,6 +86,8 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
     """
     Inputs should be L*, a*, b*. Primes from formulas in
     http://www2.ece.rochester.edu/~gsharma/ciede2000/ciede2000noteCRNA.pdf are omitted for conciseness.
+    This version is based on the matlab implementation from Gaurav Sharma
+    http://www2.ece.rochester.edu/~gsharma/ciede2000/dataNprograms/deltaE2000.m modified to have non NaN gradients.
 
     Parameters
     ----------
@@ -132,33 +131,33 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
     h_1 = torch.atan2(b_star_1, a_1 + ε * (a_1 == 0))
     h_2 = torch.atan2(b_star_2, a_2 + ε * (a_2 == 0))
 
-    h_1 = rad2deg(h_1 + 2 * math.pi * (h_1 < 0))
-    h_2 = rad2deg(h_2 + 2 * math.pi * (h_2 < 0))
+    h_1 = h_1 + 2 * math.pi * (h_1 < 0)
+    h_2 = h_2 + 2 * math.pi * (h_2 < 0)
 
     ΔL = Lab_2.narrow(1, 0, 1) - Lab_1.narrow(1, 0, 1)
     ΔC = C_2 - C_1
     Δh = torch.where(C_1_C_2_zero, torch.zeros_like(h_1),
-                     torch.where(torch.abs(h_2 - h_1) <= 180, h_2 - h_1,
-                                 torch.where(h_2 - h_1 > 180, h_2 - h_1 - 360, h_2 - h_1 + 360)))
+                     torch.where(torch.abs(h_2 - h_1) <= math.pi, h_2 - h_1,
+                                 torch.where(h_2 - h_1 > math.pi, h_2 - h_1 - 2 * math.pi, h_2 - h_1 + 2 * math.pi)))
 
-    ΔH = 2 * (C_1 * C_2).clamp_min(ε).sqrt() * torch.sin(deg2rad(Δh) / 2)
-    ΔH_squared = 4 * C_1 * C_2 * torch.sin(deg2rad(Δh) / 2) ** 2
+    ΔH = 2 * (C_1 * C_2).clamp_min(ε).sqrt() * torch.sin(Δh / 2)
+    ΔH_squared = 4 * C_1 * C_2 * torch.sin(Δh / 2) ** 2
 
-    L_mean = (Lab_1.narrow(1, 0, 1) + Lab_2.narrow(1, 0, 1)) / 2
-    C_mean = (C_1 + C_2) / 2
-    h_mean = torch.where(C_1_C_2_zero, h_1 + h_2,
-                         torch.where(torch.abs(h_1 - h_2) <= 180, (h_1 + h_2) / 2,
-                                     torch.where((torch.abs(h_1 - h_2) > 180) & ((h_1 + h_2) < 360),
-                                                 (h_1 + h_2 + 360) / 2, (h_1 + h_2 - 360) / 2)))
+    L_bar = (Lab_1.narrow(1, 0, 1) + Lab_2.narrow(1, 0, 1)) / 2
+    C_bar = (C_1 + C_2) / 2
+    h_bar = torch.where(C_1_C_2_zero, h_1 + h_2,
+                        torch.where(torch.abs(h_1 - h_2) < math.pi + 1e-6, (h_1 + h_2) / 2,
+                                    torch.where((torch.abs(h_1 - h_2) > math.pi) & ((h_1 + h_2) < 2 * math.pi),
+                                                (h_1 + h_2 + 2 * math.pi) / 2, (h_1 + h_2 - 2 * math.pi) / 2)))
 
-    T = 1 - 0.17 * deg2rad(h_mean - 30).cos() + 0.24 * deg2rad(2 * h_mean).cos() + \
-        0.32 * deg2rad(3 * h_mean + 6).cos() - 0.20 * deg2rad(4 * h_mean - 63).cos()
+    T = 1 - 0.17 * (h_bar - math.pi / 6).cos() + 0.24 * (2 * h_bar).cos() + \
+        0.32 * (3 * h_bar + math.pi / 30).cos() - 0.20 * (4 * h_bar - 63 * math.pi / 180).cos()
 
-    Δθ = 30 * deg2rad(torch.exp(-((h_mean - 275) / 25) ** 2))
-    R_C = 2 * (C_mean ** 7 / (C_mean ** 7 + 25 ** 7)).clamp_min(ε).sqrt()
-    S_L = 1 + 0.015 * (L_mean - 50) ** 2 / torch.sqrt(20 + (L_mean - 50) ** 2)
-    S_C = 1 + 0.045 * C_mean
-    S_H = 1 + 0.015 * C_mean * T
+    Δθ = math.pi / 6 * (torch.exp(-((180 / math.pi * h_bar - 275) / 25) ** 2))
+    R_C = 2 * (C_bar ** 7 / (C_bar ** 7 + 25 ** 7)).clamp_min(ε).sqrt()
+    S_L = 1 + 0.015 * (L_bar - 50) ** 2 / torch.sqrt(20 + (L_bar - 50) ** 2)
+    S_C = 1 + 0.045 * C_bar
+    S_H = 1 + 0.015 * C_bar * T
     R_T = -torch.sin(2 * Δθ) * R_C
 
     ΔE_00 = (ΔL / (k_L * S_L)) ** 2 + (ΔC / (k_C * S_C)) ** 2 + ΔH_squared / (k_H * S_H) ** 2 + \
