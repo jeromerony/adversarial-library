@@ -58,13 +58,12 @@ def ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11, k
         raise ValueError('Expected 4 dimensions (got {})'.format(dim))
 
     if input.size() != target.size():
-        raise ValueError('Expected input size ({}) to match target size ({}).'
-                         .format(input.size(0), target.size(0)))
+        raise ValueError('Expected input size ({}) to match target size ({}).'.format(input.size(0), target.size(0)))
 
     if size_average is not None or reduce is not None:
         reduction = _Reduction.legacy_get_string(size_average, reduce)
 
-    _, channel, _, _ = input.size()
+    channel = input.size(1)
     kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=input.shape[-2:])
     ret, _ = _ssim(input, target, max_val, k1, k2, channel, kernel)
 
@@ -90,13 +89,12 @@ def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11
         raise ValueError('Expected 4 dimensions (got {}) from input'.format(dim))
 
     if input.size() != target.size():
-        raise ValueError('Expected input size ({}) to match target size ({}).'
-                         .format(input.size(0), target.size(0)))
+        raise ValueError('Expected input size ({}) to match target size ({}).'.format(input.size(0), target.size(0)))
 
     if size_average is not None or reduce is not None:
         reduction = _Reduction.legacy_get_string(size_average, reduce)
 
-    _, channel, _, _ = input.size()
+    channel = input.size(1)
     kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=input.shape[-2:])
 
     weights = torch.tensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333], device=input.device)
