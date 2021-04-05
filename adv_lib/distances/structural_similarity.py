@@ -9,15 +9,17 @@ from torch.nn.functional import conv2d, avg_pool2d
 
 
 @lru_cache
-def _fspecial_gaussian(size: int, channel: int, sigma: float, device: torch.device,
+def _fspecial_gaussian(size: int, channel: int, sigma: float, device: torch.device, dtype: torch.dtype,
                        max_size: Tuple[int, int]) -> Tensor:
-    coords = -(torch.arange(size, device=device) - (size - 1) / 2) ** 2 / (2. * sigma ** 2)
+    coords = -(torch.arange(size, device=device, dtype=dtype) - (size - 1) / 2) ** 2 / (2. * sigma ** 2)
     if max(max_size) <= size:
-        coords_x, coords_y = torch.zeros(max_size[0], device=device), torch.zeros(max_size[1], device=device)
+        coords_x, coords_y = torch.zeros(max_size[0], device=device, dtype=dtype), torch.zeros(max_size[1],
+                                                                                               device=device,
+                                                                                               dtype=dtype)
     elif max_size[0] <= size:
-        coords_x, coords_y = torch.zeros(max_size[0], device=device), coords
+        coords_x, coords_y = torch.zeros(max_size[0], device=device, dtype=dtype), coords
     elif max_size[1] <= size:
-        coords_x, coords_y = coords, torch.zeros(max_size[1], device=device)
+        coords_x, coords_y = coords, torch.zeros(max_size[1], device=device, dtype=dtype)
     else:
         coords_x = coords_y = coords
     final_size = (min(max_size[0], size), min(max_size[1], size))
@@ -64,7 +66,8 @@ def ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11, k
         reduction = _Reduction.legacy_get_string(size_average, reduce)
 
     channel = input.size(1)
-    kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=input.shape[-2:])
+    kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, dtype=input.dtype,
+                                max_size=input.shape[-2:])
     ret, _ = _ssim(input, target, max_val, k1, k2, channel, kernel)
 
     if reduction != 'none':
@@ -95,7 +98,8 @@ def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11
         reduction = _Reduction.legacy_get_string(size_average, reduce)
 
     channel = input.size(1)
-    kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=input.shape[-2:])
+    kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, dtype=input.dtype,
+                                max_size=input.shape[-2:])
 
     weights = torch.tensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333], device=input.device)
     weights = weights.unsqueeze(-1).unsqueeze(-1)
@@ -109,7 +113,8 @@ def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11
             target = avg_pool2d(target, kernel_size=2, ceil_mode=True)
 
         if min(size := input.shape[-2:]) <= filter_size:
-            kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, max_size=size)
+            kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, dtype=input.dtype,
+                                        max_size=size)
 
         ssim, cs = _ssim(input, target, max_val, k1, k2, channel, kernel)
         ssim = ssim.mean((2, 3))
