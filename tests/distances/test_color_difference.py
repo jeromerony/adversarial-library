@@ -51,11 +51,13 @@ def test_ciede2000_color_difference_value(dtype: torch.dtype) -> None:
     Lab2 = test_data.narrow(1, 3, 3).clone()
     test_ΔE_00 = test_data[:, -1].clone()
 
-    ΔE_00 = ciede2000_color_difference(Lab1, Lab2).squeeze()
-    ΔE_00_2 = ciede2000_color_difference(Lab2, Lab1).squeeze()
+    ΔE_00_1 = ciede2000_color_difference(Lab1, Lab2)
+    ΔE_00_2 = ciede2000_color_difference(Lab2, Lab1)
+    ΔE_00_0 = ciede2000_color_difference(Lab1, Lab1)
 
-    assert torch.equal(ΔE_00, ΔE_00_2)
-    assert torch.allclose(ΔE_00, test_ΔE_00, rtol=1e-4, atol=1e-5)
+    assert torch.equal(ΔE_00_0, torch.zeros_like(ΔE_00_0))  # check identical inputs
+    assert torch.equal(ΔE_00_1, ΔE_00_2)  # check symmetry
+    assert torch.allclose(ΔE_00_1, test_ΔE_00, rtol=1e-4, atol=1e-5)  # check correctness
 
 
 @pytest.mark.parametrize('dtype', [torch.float32, torch.float64])
@@ -66,6 +68,14 @@ def test_ciede2000_color_difference_grad(dtype: torch.dtype) -> None:
 
     # check that gradients are not NaN
     Lab1.requires_grad_(True)
+
+    # check for identical inputs
+    ΔE_00 = ciede2000_color_difference(Lab1, Lab1, ε=1e-12)
+    ΔE_00_grad = grad(ΔE_00.sum(), Lab1, only_inputs=True)[0]
+    assert not torch.isnan(ΔE_00_grad).any()
+    assert torch.equal(ΔE_00_grad, torch.zeros_like(ΔE_00_grad))
+
+    # check for different inputs
     ΔE_00 = ciede2000_color_difference(Lab1, Lab2, ε=1e-12)
     ΔE_00_grad = grad(ΔE_00.sum(), Lab1, only_inputs=True)[0]
     assert not torch.isnan(ΔE_00_grad).any()
