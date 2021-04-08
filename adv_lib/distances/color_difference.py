@@ -112,49 +112,63 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
         The CIEDE2000 color difference for each pixel.
 
     """
+    assert Lab_1.size(1) == 3 and Lab_2.size(1) == 3
+    assert Lab_1.dtype == Lab_2.dtype
+    dtype = Lab_1.dtype
+    π = torch.tensor(math.pi, dtype=dtype, device=Lab_1.device)
+    π_compare = π if dtype == torch.float64 else torch.tensor(math.pi, dtype=torch.float64, device=Lab_1.device)
 
-    C_star_1 = torch.norm(Lab_1.narrow(1, 1, 2), p=2, dim=1, keepdim=True)
-    C_star_2 = torch.norm(Lab_2.narrow(1, 1, 2), p=2, dim=1, keepdim=True)
-    C_star_mean = (C_star_1 + C_star_2) / 2
-    G = 0.5 * (1 - (C_star_mean ** 7 / (C_star_mean ** 7 + 25 ** 7)).clamp_min(ε).sqrt())
+    L_star_1, a_star_1, b_star_1 = Lab_1.unbind(dim=1)
+    L_star_2, a_star_2, b_star_2 = Lab_2.unbind(dim=1)
 
-    a_star_1 = Lab_1.narrow(1, 1, 1)
-    a_star_2 = Lab_2.narrow(1, 1, 1)
-    b_star_1 = Lab_1.narrow(1, 2, 1)
-    b_star_2 = Lab_2.narrow(1, 2, 1)
+    C_star_1 = torch.norm(torch.stack((a_star_1, b_star_1), dim=1), p=2, dim=1)
+    C_star_2 = torch.norm(torch.stack((a_star_2, b_star_2), dim=1), p=2, dim=1)
+    C_star_bar = (C_star_1 + C_star_2) / 2
+    C7 = C_star_bar ** 7
+    G = 0.5 * (1 - (C7 / (C7 + 25 ** 7)).clamp_min(ε).sqrt())
 
-    a_1 = (1 + G) * a_star_1
-    a_2 = (1 + G) * a_star_2
-    C_1_C_2_zero = ((a_1 == 0) & (b_star_1 == 0)) | ((a_2 == 0) & (b_star_2 == 0))
-    C_1 = (a_1 ** 2 + b_star_1 ** 2).clamp_min(ε).sqrt()
-    C_2 = (a_2 ** 2 + b_star_2 ** 2).clamp_min(ε).sqrt()
+    scale = 1 + G
+    a_1 = scale * a_star_1
+    a_2 = scale * a_star_2
+    C_1 = torch.norm(torch.stack((a_1, b_star_1), dim=1), p=2, dim=1)
+    C_2 = torch.norm(torch.stack((a_2, b_star_2), dim=1), p=2, dim=1)
+    C_1_C_2_zero = (C_1 == 0) | (C_2 == 0)
     h_1 = torch.atan2(b_star_1, a_1 + ε * (a_1 == 0))
     h_2 = torch.atan2(b_star_2, a_2 + ε * (a_2 == 0))
 
-    h_1 = h_1 + 2 * math.pi * (h_1 < 0)
-    h_2 = h_2 + 2 * math.pi * (h_2 < 0)
+    # required to match the test data
+    h_abs_diff_compare = (torch.atan2(b_star_1.to(dtype=torch.float64),
+                                      a_1.to(dtype=torch.float64)).remainder(2 * π_compare) -
+                          torch.atan2(b_star_2.to(dtype=torch.float64),
+                                      a_2.to(dtype=torch.float64)).remainder(2 * π_compare)).abs() <= π_compare
 
-    ΔL = Lab_2.narrow(1, 0, 1) - Lab_1.narrow(1, 0, 1)
+    h_1 = h_1.remainder(2 * π)
+    h_2 = h_2.remainder(2 * π)
+    h_diff = h_2 - h_1
+    h_sum = h_1 + h_2
+
+    ΔL = L_star_2 - L_star_1
     ΔC = C_2 - C_1
     Δh = torch.where(C_1_C_2_zero, torch.zeros_like(h_1),
-                     torch.where(torch.abs(h_2 - h_1) <= math.pi, h_2 - h_1,
-                                 torch.where(h_2 - h_1 > math.pi, h_2 - h_1 - 2 * math.pi, h_2 - h_1 + 2 * math.pi)))
+                     torch.where(h_abs_diff_compare, h_diff,
+                                 torch.where(h_diff > π, h_diff - 2 * π, h_diff + 2 * π)))
 
     ΔH = 2 * (C_1 * C_2).clamp_min(ε).sqrt() * torch.sin(Δh / 2)
     ΔH_squared = 4 * C_1 * C_2 * torch.sin(Δh / 2) ** 2
 
-    L_bar = (Lab_1.narrow(1, 0, 1) + Lab_2.narrow(1, 0, 1)) / 2
+    L_bar = (L_star_1 + L_star_2) / 2
     C_bar = (C_1 + C_2) / 2
-    h_bar = torch.where(C_1_C_2_zero, h_1 + h_2,
-                        torch.where(torch.abs(h_1 - h_2) < math.pi + 1e-6, (h_1 + h_2) / 2,
-                                    torch.where((torch.abs(h_1 - h_2) > math.pi) & ((h_1 + h_2) < 2 * math.pi),
-                                                (h_1 + h_2 + 2 * math.pi) / 2, (h_1 + h_2 - 2 * math.pi) / 2)))
 
-    T = 1 - 0.17 * (h_bar - math.pi / 6).cos() + 0.24 * (2 * h_bar).cos() + \
-        0.32 * (3 * h_bar + math.pi / 30).cos() - 0.20 * (4 * h_bar - 63 * math.pi / 180).cos()
+    h_bar = torch.where(C_1_C_2_zero, h_sum,
+                        torch.where(h_abs_diff_compare, h_sum / 2,
+                                    torch.where(h_sum < 2 * π, h_sum / 2 + π, h_sum / 2 - π)))
 
-    Δθ = math.pi / 6 * (torch.exp(-((180 / math.pi * h_bar - 275) / 25) ** 2))
-    R_C = 2 * (C_bar ** 7 / (C_bar ** 7 + 25 ** 7)).clamp_min(ε).sqrt()
+    T = 1 - 0.17 * (h_bar - π / 6).cos() + 0.24 * (2 * h_bar).cos() + \
+        0.32 * (3 * h_bar + π / 30).cos() - 0.20 * (4 * h_bar - 63 * π / 180).cos()
+
+    Δθ = π / 6 * (torch.exp(-((180 / π * h_bar - 275) / 25) ** 2))
+    C7 = C_bar ** 7
+    R_C = 2 * (C7 / (C7 + 25 ** 7)).clamp_min(ε).sqrt()
     S_L = 1 + 0.015 * (L_bar - 50) ** 2 / torch.sqrt(20 + (L_bar - 50) ** 2)
     S_C = 1 + 0.045 * C_bar
     S_H = 1 + 0.015 * C_bar * T
