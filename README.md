@@ -46,7 +46,7 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 | Trust Region (TR)                                      | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1812.06371 |
 | Fast Adaptive Boundary (FAB)                           | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/1907.02044 |
 | Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | CIEDE2000                                                 | https://arxiv.org/abs/1911.02466 |
-| Auto-PGD (APGD)                                        | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/2003.01690 |
+| Auto-PGD (APGD)                                        | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/2003.01690<br />https://arxiv.org/abs/2103.01208 |
 | **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | https://arxiv.org/abs/2011.11857 |
 | Voting Folded Gaussian Attack (VFGA)                   | White-box | L<sub>0</sub>                                             | https://arxiv.org/abs/2011.12423 |
 | Fast Minimum-Norm (FMN)                                | White-box | L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>| https://arxiv.org/abs/2102.12827 |

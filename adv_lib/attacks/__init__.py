@@ -1,5 +1,5 @@
 from .augmented_lagrangian import alma
-from .auto_pgd import apgd
+from .auto_pgd import apgd, apgd_targeted
 from .carlini_wagner import carlini_wagner_l2, carlini_wagner_linf
 from .decoupled_direction_norm import ddn
 from .fast_adaptive_boundary import fab
