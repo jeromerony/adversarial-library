@@ -4,8 +4,10 @@ from functools import partial
 from typing import Tuple, Optional, Union
 
 import torch
-from adv_lib.utils.losses import difference_of_logits_ratio
 from torch import nn, Tensor
+from torch.nn import functional as F
+
+from adv_lib.utils.losses import difference_of_logits_ratio
 
 
 def apgd(model: nn.Module,
@@ -301,8 +303,7 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
     d = u.clone()
 
     bs, indbs = torch.sort(-torch.cat((u, l), dim=1), dim=1)
-    # bs2 = F.pad(bs[:, 1:], (0, 1))
-    bs2 = torch.cat((bs[:, 1:], torch.zeros(len(bs), 1, device=device)), dim=1)
+    bs2 = F.pad(bs[:, 1:], (0, 1))
 
     inu = 2 * (indbs < u.shape[1]).float() - 1
     size1 = inu.cumsum(dim=1)
