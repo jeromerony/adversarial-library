@@ -70,11 +70,11 @@ def vfga(model: nn.Module,
 
         # find index of most relevant feature
         if targeted:
-            i_plus = ((1 - inputs_).sqrt() * grad_label_probs - Γ_inf).flatten(1).argmax(dim=1, keepdim=True)
-            i_minus = (inputs_.sqrt() * grad_label_probs + Γ_inf).flatten(1).argmin(dim=1, keepdim=True)
+            i_plus = ((1 - inputs_) * grad_label_probs - Γ_inf).flatten(1).argmax(dim=1, keepdim=True)
+            i_minus = (inputs_ * grad_label_probs + Γ_inf).flatten(1).argmin(dim=1, keepdim=True)
         else:
-            i_plus = ((1 - inputs_).sqrt() * grad_label_probs + Γ_inf).flatten(1).argmin(dim=1, keepdim=True)
-            i_minus = (inputs_.sqrt() * grad_label_probs - Γ_inf).flatten(1).argmax(dim=1, keepdim=True)
+            i_plus = ((1 - inputs_) * grad_label_probs + Γ_inf).flatten(1).argmin(dim=1, keepdim=True)
+            i_minus = (inputs_ * grad_label_probs - Γ_inf).flatten(1).argmax(dim=1, keepdim=True)
         # compute variance of gaussian noise
         θ_plus = 1 - inputs_.flatten(1).gather(1, i_plus)
         θ_minus = inputs_.flatten(1).gather(1, i_minus)
@@ -83,10 +83,10 @@ def vfga(model: nn.Module,
         S_minus = -θ_minus.sqrt() * torch.randn(batch_size_, n_samples, device=device).abs()
 
         # add perturbation to inputs
-        inputs_repeat = inputs_.flatten(1).unsqueeze(1).repeat(1, 2 * n_samples, 1)
+        perturbed_inputs = inputs_.flatten(1).unsqueeze(1).repeat(1, 2 * n_samples, 1)
         i_plus_minus = torch.cat([i_plus, i_minus], dim=1).repeat_interleave(n_samples, dim=1)
         S_plus_minus = torch.cat([S_plus, S_minus], dim=1)
-        perturbed_inputs = inputs_repeat.scatter_add(2, i_plus_minus.unsqueeze(2), S_plus_minus.unsqueeze(2))
+        perturbed_inputs.scatter_add_(2, i_plus_minus.unsqueeze(2), S_plus_minus.unsqueeze(2))
         perturbed_inputs.clamp_(min=0, max=1)
 
         # get probabilities for perturbed inputs

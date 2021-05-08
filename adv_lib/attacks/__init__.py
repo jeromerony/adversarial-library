@@ -6,5 +6,5 @@ from .fast_adaptive_boundary import fab
 from .fast_minimum_norm import fmn
 from .perceptual_color_attacks import perc_al
 from .projected_gradient_descent import pgd_linf
-from .sparse_stochastic_adversarial_attacks import vfga
+from .voting_folded_gaussian import vfga
 from .trust_region import tr
