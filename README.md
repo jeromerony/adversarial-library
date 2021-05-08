@@ -38,21 +38,24 @@ Alternatively, you can install (after cloning) the library in editable mode:
 
 Currently the following attacks are implemented in the `adv_lib.attacks` module:
 
-| Name                                                   | Knowledge | Distance(s)                                               | Link                             |
-|--------------------------------------------------------|-----------|-----------------------------------------------------------|----------------------------------|
-| Carlini and Wagner (C&W)                               | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1608.04644 |
-| Projected Gradient Descent (PGD)                       | White-box | L<sub>∞</sub>                                             | https://arxiv.org/abs/1706.06083 |
-| **Decoupled Direction and Norm (DDN)**                 | White-box | L<sub>2</sub>                                             | https://arxiv.org/abs/1811.09600 |
-| Trust Region (TR)                                      | White-box | L<sub>2</sub>, L<sub>∞</sub>                              | https://arxiv.org/abs/1812.06371 |
-| Fast Adaptive Boundary (FAB)                           | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/1907.02044 |
-| Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | CIEDE2000                                                 | https://arxiv.org/abs/1911.02466 |
-| Auto-PGD (APGD)                                        | White-box | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | https://arxiv.org/abs/2003.01690<br />https://arxiv.org/abs/2103.01208 |
-| **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | https://arxiv.org/abs/2011.11857 |
-| Voting Folded Gaussian Attack (VFGA)                   | White-box | L<sub>0</sub>                                             | https://arxiv.org/abs/2011.12423 |
-| Fast Minimum-Norm (FMN)                                | White-box | L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>| https://arxiv.org/abs/2102.12827 |
+| Name                                                   | Knowledge | Type    | Distance(s)                                               | ArXiv Link                       |
+|--------------------------------------------------------|-----------|---------|-----------------------------------------------------------|----------------------------------|
+| Carlini and Wagner (C&W)                               | White-box | Minimal | L<sub>2</sub>, L<sub>∞</sub>                              | [1608.04644](https://arxiv.org/abs/1608.04644) |
+| Projected Gradient Descent (PGD)                       | White-box | Budget  | L<sub>∞</sub>                                             | [1706.06083](https://arxiv.org/abs/1706.06083) |
+| **Decoupled Direction and Norm (DDN)**                 | White-box | Minimal | L<sub>2</sub>                                             | [1811.09600](https://arxiv.org/abs/1811.09600) |
+| Trust Region (TR)                                      | White-box | Minimal | L<sub>2</sub>, L<sub>∞</sub>                              | [1812.06371](https://arxiv.org/abs/1812.06371) |
+| Fast Adaptive Boundary (FAB)                           | White-box | Minimal | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | [1907.02044](https://arxiv.org/abs/1907.02044) |
+| Perceptual Color distance Alternating Loss (PerC-AL)   | White-box | Minimal | CIEDE2000                                                 | [1911.02466](https://arxiv.org/abs/1911.02466) |
+| Auto-PGD (APGD)                                        | White-box | Budget  | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | [2003.01690](https://arxiv.org/abs/2003.01690) <br /> [2103.01208](https://arxiv.org/abs/2103.01208) |
+| **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | Minimal | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | [2011.11857](https://arxiv.org/abs/2011.11857) |
+| Voting Folded Gaussian Attack (VFGA)                   | White-box | Minimal | L<sub>0</sub>                                             | [2011.12423](https://arxiv.org/abs/2011.12423) |
+| Fast Minimum-Norm (FMN)                                | White-box | Minimal | L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>| [2102.12827](https://arxiv.org/abs/2102.12827) |
 
 Bold means that this repository contains the official implementation.
 
+_Type_ refers to the goal of the attack:
+ - _Minimal_ attacks aim to find the smallest adversarial perturbation w.r.t. a given distance;
+ - _Budget_ attacks aim to find an adversarial perturbation within a distance budget (and often to maximize a loss as well).
 
 ### Distances
 
