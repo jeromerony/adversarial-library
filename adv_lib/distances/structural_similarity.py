@@ -5,10 +5,10 @@ from typing import Tuple
 import torch
 from torch import Tensor
 from torch.nn import _reduction as _Reduction
-from torch.nn.functional import conv2d, avg_pool2d
+from torch.nn.functional import avg_pool2d, conv2d
 
 
-@lru_cache
+@lru_cache()
 def _fspecial_gaussian(size: int, channel: int, sigma: float, device: torch.device, dtype: torch.dtype,
                        max_size: Tuple[int, int]) -> Tensor:
     coords = -(torch.arange(size, device=device, dtype=dtype) - (size - 1) / 2) ** 2 / (2. * sigma ** 2)
@@ -84,6 +84,11 @@ def ssim_loss(*args, **kwargs) -> Tensor:
     return 1 - compute_ssim(*args, **kwargs)
 
 
+@lru_cache()
+def ms_weights(device: torch.device):
+    return torch.tensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333], device=device)
+
+
 def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11, k1: float = 0.01, k2: float = 0.03,
             sigma: float = 1.5, size_average=None, reduce=None, reduction: str = 'mean') -> Tensor:
     """Measures the multi-scale structural similarity index (MS-SSIM) error."""
@@ -101,8 +106,7 @@ def ms_ssim(input: Tensor, target: Tensor, max_val: float, filter_size: int = 11
     kernel = _fspecial_gaussian(filter_size, channel, sigma, device=input.device, dtype=input.dtype,
                                 max_size=input.shape[-2:])
 
-    weights = torch.tensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333], device=input.device)
-    weights = weights.unsqueeze(-1).unsqueeze(-1)
+    weights = ms_weights(input.device).unsqueeze(-1).unsqueeze(-1)
     levels = weights.size(0)
     mssim = []
     mcs = []
