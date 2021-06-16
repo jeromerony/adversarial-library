@@ -9,6 +9,7 @@ from adv_lib.distances.color_difference import ciede2000_loss
 from adv_lib.distances.lp_norms import l2_distances, l1_distances
 from adv_lib.distances.lpips import LPIPS
 from adv_lib.distances.structural_similarity import ssim_loss, ms_ssim_loss
+from adv_lib.utils.lagrangian_penalties import all_penalties
 from adv_lib.utils.losses import difference_of_logits_ratio
 from adv_lib.utils.optimizers import RMSprop
 from adv_lib.utils.visdom_logger import VisdomLogger
@@ -67,7 +68,7 @@ _distances = {
 def alma(model: nn.Module,
          inputs: Tensor,
          labels: Tensor,
-         penalty: Callable,
+         penalty: Callable = all_penalties['P2'],
          targeted: bool = False,
          num_steps: int = 1000,
          lr_init: float = 0.1,
