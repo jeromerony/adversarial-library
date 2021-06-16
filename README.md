@@ -50,6 +50,7 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 | **Augmented Lagrangian Method for Adversarial (ALMA)** | White-box | Minimal | L<sub>1</sub>, L<sub>2</sub>, SSIM, CIEDE2000, LPIPS, ... | [2011.11857](https://arxiv.org/abs/2011.11857) |
 | Voting Folded Gaussian Attack (VFGA)                   | White-box | Minimal | L<sub>0</sub>                                             | [2011.12423](https://arxiv.org/abs/2011.12423) |
 | Fast Minimum-Norm (FMN)                                | White-box | Minimal | L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>| [2102.12827](https://arxiv.org/abs/2102.12827) |
+| Primal-Dual Gradient Descent (PDGD)                    | White-box | Minimal | L<sub>2</sub>                                             | [2106.01538](https://arxiv.org/abs/2106.01538) |
 
 Bold means that this repository contains the official implementation.
 

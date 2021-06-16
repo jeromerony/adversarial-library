@@ -5,6 +5,7 @@ from .decoupled_direction_norm import ddn
 from .fast_adaptive_boundary import fab
 from .fast_minimum_norm import fmn
 from .perceptual_color_attacks import perc_al
+from .primal_dual_gradient_descent import pdgd
 from .projected_gradient_descent import pgd_linf
 from .voting_folded_gaussian import vfga
 from .trust_region import tr
