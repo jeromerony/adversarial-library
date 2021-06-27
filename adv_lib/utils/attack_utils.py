@@ -100,7 +100,7 @@ def run_attack(model: nn.Module,
     chunks = [tensor.split(batch_size) for tensor in [inputs[not_adv], adv_labels[not_adv]]]
     total_time = 0
     for (inputs_chunk, label_chunk) in tqdm.tqdm(zip(*chunks), ncols=80, total=len(chunks[0])):
-        batch_chunk_d, label_chunk_d = [to_device(tensor) for tensor in [inputs_chunk, label_chunk]]
+        batch_chunk_d, label_chunk_d = [to_device(tensor.clone()) for tensor in [inputs_chunk, label_chunk]]
 
         start.record()
         advs_chunk_d = attack(model, batch_chunk_d, label_chunk_d, targeted=targeted)
