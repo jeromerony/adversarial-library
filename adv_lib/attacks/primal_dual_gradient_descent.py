@@ -50,7 +50,7 @@ def pdgd(model: nn.Module,
     primal_lr_decrease : float
         Final learning rate multiplier for primal variables.
     λ_init : float
-        Initial ratio λ_0 / Λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
+        Initial ratio λ_0 / λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
     dual_lr : float
         Learning rate for dual variables.
     dual_lr_decrease : float
@@ -218,7 +218,7 @@ def pdpgd(model: nn.Module,
     primal_lr_decrease : float
         Final learning rate multiplier for primal variables.
     λ_init : float
-        Initial ratio λ_0 / Λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
+        Initial ratio λ_0 / λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
     dual_lr : float
         Learning rate for dual variables.
     dual_lr_decrease : float
