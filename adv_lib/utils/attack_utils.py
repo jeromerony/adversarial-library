@@ -214,7 +214,7 @@ def print_metrics(metrics: dict) -> None:
     print('Attack done in: {:.2f}s with {:.4g} forwards and {:.4g} backwards.'.format(
         metrics['time'], metrics['num_forwards'], metrics['num_backwards']))
     success = metrics['success'].numpy()
-    fail = success.mean() != 1
+    fail = bool(success.mean() != 1)
     print('Attack success: {:.2%}'.format(success.mean()) + fail * ' - {}'.format(success))
     for distance, values in metrics['distances'].items():
         data = values.numpy()
