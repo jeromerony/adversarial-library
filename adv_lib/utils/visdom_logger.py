@@ -44,16 +44,12 @@ class VisdomLogger:
         elif isinstance(y, list):
             Y = torch.stack(list(map(self.as_unsqueezed_tensor, y)), 1)
         elif isinstance(y, Tensor):
-            Y = y.detach()
-            if Y.ndim == 0:
-                Y = Y.unsqueeze(0)
+            Y = self.as_unsqueezed_tensor(y)
 
         if isinstance(x, (int, float)):
             X = torch.tensor([x])
         elif isinstance(X, Tensor):
-            X = x.detach()
-            if X.ndim == 0:
-                X = X.unsqueeze(0)
+            X = self.as_unsqueezed_tensor(x)
 
         if Y.ndim == 2 and X.ndim == 1:
             X.expand(len(X), Y.shape[1])
