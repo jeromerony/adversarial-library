@@ -1,6 +1,6 @@
 from collections import defaultdict
 from enum import Enum
-from typing import Union, List, Tuple, Optional
+from typing import List, Optional, Tuple, Union
 
 import torch
 import visdom
@@ -39,19 +39,21 @@ class VisdomLogger:
         data = self.windows['$'.join(names)]
         update = None if data.window is None else 'append'
 
-        Y = y
-        if isinstance(Y, (int, float)):
-            Y = torch.tensor([Y])
-        elif isinstance(Y, list):
-            Y = torch.stack(list(map(self.as_unsqueezed_tensor, Y)), 1)
-        elif isinstance(Y, Tensor) and Y.ndim == 0:
-            Y.unsqueeze_(0)
+        if isinstance(y, (int, float)):
+            Y = torch.tensor([y])
+        elif isinstance(y, list):
+            Y = torch.stack(list(map(self.as_unsqueezed_tensor, y)), 1)
+        elif isinstance(y, Tensor):
+            Y = y.detach()
+            if Y.ndim == 0:
+                Y = Y.unsqueeze(0)
 
-        X = x
-        if isinstance(X, (int, float)):
-            X = torch.tensor([X])
-        elif isinstance(X, Tensor) and X.ndim == 0:
-            X.unsqueeze_(0)
+        if isinstance(x, (int, float)):
+            X = torch.tensor([x])
+        elif isinstance(X, Tensor):
+            X = x.detach()
+            if X.ndim == 0:
+                X = X.unsqueeze(0)
 
         if Y.ndim == 2 and X.ndim == 1:
             X.expand(len(X), Y.shape[1])
