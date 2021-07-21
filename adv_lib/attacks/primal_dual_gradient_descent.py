@@ -26,6 +26,7 @@ def pdgd(model: nn.Module,
          dual_lr: float = 0.1,
          dual_lr_decrease: float = 0.1,
          dual_ema: float = 0.9,
+         dual_min_ratio: float = 1e-6,
          callback: Optional[VisdomLogger] = None) -> Tensor:
     """
     Primal-Dual Gradient Descent (PDGD) attack from https://arxiv.org/abs/2106.01538. This version is only suitable for
@@ -57,6 +58,8 @@ def pdgd(model: nn.Module,
         Final learning rate multiplier for dual variables.
     dual_ema : float
         Coefficient for exponential moving average. Equivalent to no EMA if dual_ema == 0.
+    dual_min_ratio : float
+        Minimum ratio λ_0 / λ_1 and λ_1 / λ_0 to avoid having too large absolute values of λ_1.
     callback : VisdomLogger
         Callback to visualize the progress of the algorithm.
 
@@ -72,6 +75,7 @@ def pdgd(model: nn.Module,
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     multiplier = -1 if targeted else 1
+    log_min_dual_ratio = math.log(dual_min_ratio)
 
     # Setup variables
     r = torch.zeros_like(inputs, requires_grad=True)
@@ -123,7 +127,7 @@ def pdgd(model: nn.Module,
 
         # gradient ascent on dual variables and exponential moving average
         θ_λ = dual_lr * ((num_steps - 1 - i) / (num_steps - 1) * (1 - dual_lr_decrease) + dual_lr_decrease)
-        λ[:, 1].add_(grad_λ, alpha=θ_λ)
+        λ[:, 1].add_(grad_λ, alpha=θ_λ).clamp_(min=log_min_dual_ratio, max=-log_min_dual_ratio)
         λ_ema.mul_(dual_ema).add_(λ.softmax(dim=1), alpha=1 - dual_ema)
 
         if callback is not None:
@@ -188,6 +192,7 @@ def pdpgd(model: nn.Module,
           dual_lr: float = 0.1,
           dual_lr_decrease: float = 0.1,
           dual_ema: float = 0.9,
+          dual_min_ratio: float = 1e-6,
           proximal_steps: int = 5,
           ε_threshold: float = 1e-2,
           callback: Optional[VisdomLogger] = None) -> Tensor:
@@ -225,6 +230,8 @@ def pdpgd(model: nn.Module,
         Final learning rate multiplier for dual variables.
     dual_ema : float
         Coefficient for exponential moving average. Equivalent to no EMA if dual_ema == 0.
+    dual_min_ratio : float
+        Minimum ratio λ_0 / λ_1 and λ_1 / λ_0 to avoid having too large absolute values of λ_1.
     proximal_steps : int
         Number of steps for proximal Adam (https://arxiv.org/abs/1910.10094).
     ε_threshold : float
@@ -259,6 +266,7 @@ def pdpgd(model: nn.Module,
     multiplier = -1 if targeted else 1
     distance = _distance[norm]
     proximity_operator = _proximal_operator[proximal_operator or norm]
+    log_min_dual_ratio = math.log(dual_min_ratio)
 
     # Setup variables
     r = torch.zeros_like(inputs, requires_grad=True)
@@ -336,7 +344,7 @@ def pdpgd(model: nn.Module,
 
         # gradient ascent on dual variables and exponential moving average
         θ_λ = dual_lr * ((num_steps - 1 - i) / (num_steps - 1) * (1 - dual_lr_decrease) + dual_lr_decrease)
-        λ[:, 1].add_(grad_λ, alpha=θ_λ)
+        λ[:, 1].add_(grad_λ, alpha=θ_λ).clamp_(min=log_min_dual_ratio, max=-log_min_dual_ratio)
         λ_ema.mul_(dual_ema).add_(λ.softmax(dim=1), alpha=1 - dual_ema)
 
         if callback is not None:
