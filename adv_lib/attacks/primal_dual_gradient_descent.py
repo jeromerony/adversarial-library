@@ -22,7 +22,7 @@ def pdgd(model: nn.Module,
          random_init: float = 0,
          primal_lr: float = 0.1,
          primal_lr_decrease: float = 0.01,
-         λ_init: float = 0.01,
+         dual_ratio_init: float = 0.01,
          dual_lr: float = 0.1,
          dual_lr_decrease: float = 0.1,
          dual_ema: float = 0.9,
@@ -49,7 +49,7 @@ def pdgd(model: nn.Module,
         Learning rate for primal variables.
     primal_lr_decrease : float
         Final learning rate multiplier for primal variables.
-    λ_init : float
+    dual_ratio_init : float
         Initial ratio λ_0 / λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
     dual_lr : float
         Learning rate for dual variables.
@@ -83,7 +83,7 @@ def pdgd(model: nn.Module,
     lr_lambda = lambda i: primal_lr_decrease ** (i / num_steps)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
     λ = torch.zeros(batch_size, 2, dtype=torch.float, device=device)
-    λ[:, 1] = math.log(1 / λ_init)
+    λ[:, 1] = -math.log(dual_ratio_init)
     λ_ema = λ.softmax(dim=1)
 
     # Init trackers
@@ -184,7 +184,7 @@ def pdpgd(model: nn.Module,
           proximal_operator: Optional[float] = None,
           primal_lr: float = 0.1,
           primal_lr_decrease: float = 0.01,
-          λ_init: float = 0.01,
+          dual_ratio_init: float = 0.01,
           dual_lr: float = 0.1,
           dual_lr_decrease: float = 0.1,
           dual_ema: float = 0.9,
@@ -217,7 +217,7 @@ def pdpgd(model: nn.Module,
         Learning rate for primal variables.
     primal_lr_decrease : float
         Final learning rate multiplier for primal variables.
-    λ_init : float
+    dual_ratio_init : float
         Initial ratio λ_0 / λ_1. A smaller value corresponds to a larger weight on the (mis)classification constraint.
     dual_lr : float
         Learning rate for dual variables.
@@ -270,7 +270,7 @@ def pdpgd(model: nn.Module,
     lr_lambda = lambda i: primal_lr_decrease ** (i / num_steps)
     scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
     λ = torch.zeros(batch_size, 2, dtype=torch.float, device=device)
-    λ[:, 1] = math.log(1 / λ_init)
+    λ[:, 1] = -math.log(dual_ratio_init)
     λ_ema = λ.softmax(dim=1)
 
     # Init trackers
