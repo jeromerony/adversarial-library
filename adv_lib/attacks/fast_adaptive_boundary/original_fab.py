@@ -10,7 +10,14 @@ import time
 
 import torch
 from torch import nn, Tensor
-from torch.autograd.gradcheck import zero_gradients
+
+
+def zero_gradients(x):
+    if isinstance(x, torch.Tensor):
+        if x.grad is not None:
+            x.grad.detach_()
+            x.grad.zero_()
+
 
 DEFAULT_EPS_DICT_BY_NORM = {'Linf': .3, 'L2': 1., 'L1': 5.0}
 
