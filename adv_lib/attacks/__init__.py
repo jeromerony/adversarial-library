@@ -7,5 +7,5 @@ from .fast_minimum_norm import fmn
 from .perceptual_color_attacks import perc_al
 from .primal_dual_gradient_descent import pdgd, pdpgd
 from .projected_gradient_descent import pgd_linf
-from .voting_folded_gaussian import vfga
 from .trust_region import tr
+from .voting_folded_gaussian import vfga
