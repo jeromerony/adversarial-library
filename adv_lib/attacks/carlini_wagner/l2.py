@@ -141,7 +141,7 @@ def carlini_wagner_l2(model: nn.Module,
                     callback.update_lines()
 
         if callback:
-            best_l2 = o_best_l2[o_adv_found].mean() if o_adv_found.any() else torch.tensor(float('nan'), device=device)
+            best_l2 = o_best_l2.masked_select(o_adv_found).mean()
             callback.line(['success', 'best_l2', 'c'], outer_step, [o_adv_found.float().mean(), best_l2, c.mean()])
 
         # adjust the constant as needed
