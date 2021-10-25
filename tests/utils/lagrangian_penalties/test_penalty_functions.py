@@ -20,9 +20,9 @@ def test_grad(penalty) -> None:
 @pytest.mark.parametrize('penalty,value', [(all_penalties['P2'], 1), (all_penalties['P3'], 1)])
 @pytest.mark.parametrize('dtype', [torch.float32, torch.float64])
 def test_nan_grad(penalty, value, dtype) -> None:
-    y = torch.ones(value, dtype=dtype, requires_grad=True)
-    ρ = torch.ones(value, dtype=dtype)
-    μ = torch.ones(value, dtype=dtype)
+    y = torch.full((1,), value, dtype=dtype, requires_grad=True)
+    ρ = torch.full((1,), value, dtype=dtype)
+    μ = torch.full((1,), value, dtype=dtype)
 
     out = penalty(y, ρ, μ)
     g = grad(out, y, only_inputs=True)[0]
