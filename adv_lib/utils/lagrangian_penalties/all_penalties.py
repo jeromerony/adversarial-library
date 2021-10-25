@@ -48,8 +48,8 @@ univariates_P9 = {
 combinations = {
     'PHRQuad': PHRQuad,
     'P1': P1,
-    'P2': P2,
-    'P3': P3,
+    'P2': P2.apply,
+    'P3': P3.apply,
     'P4': (P4, univariates_P4),
     'P5': (P5, univariates_P5_P6_P7),
     'P6': (P6, univariates_P5_P6_P7),

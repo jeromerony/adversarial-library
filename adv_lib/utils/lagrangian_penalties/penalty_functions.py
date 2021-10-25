@@ -26,16 +26,52 @@ def P1(y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
     return torch.where(y >= 0, y_sup, torch.where(y <= -μ / ρ, y_inf, y_mid))
 
 
-def P2(y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
-    y_sup = μ * y + μ * ρ * y ** 2 + 1 / 6 * ρ ** 2 * y ** 3
-    y_inf = μ * y / (1 - ρ * y)
-    return torch.where(y >= 0, y_sup, y_inf)
+class P2(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
+        ctx.save_for_backward(y, ρ, μ)
+        y_sup = μ * y + μ * ρ * y ** 2 + 1 / 6 * ρ ** 2 * y ** 3
+        y_inf = μ * y / (1 - ρ * y)
+        return torch.where(y >= 0, y_sup, y_inf)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        y, ρ, μ = ctx.saved_tensors
+        grad_y = grad_ρ = grad_μ = None
+
+        sup = y >= 0
+        if ctx.needs_input_grad[0]:
+            grad_y = grad_output * torch.where(sup, μ + 2 * μ * ρ * y + 0.5 * ρ ** 2 * y ** 2, μ / (1 - ρ * y) ** 2)
+        if ctx.needs_input_grad[1]:
+            grad_ρ = grad_output * torch.where(sup, 1 / 3 * y ** 2 * (3 * μ + ρ * y), μ * y ** 2 / (1 - ρ * y) ** 2)
+        if ctx.needs_input_grad[2]:
+            grad_μ = grad_output * torch.where(sup, y * (1 + ρ * y), y / (1 - ρ * y))
+
+        return grad_y, grad_ρ, grad_μ
 
 
-def P3(y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
-    y_sup = μ * y + μ * ρ * y ** 2
-    y_inf = μ * y / (1 - ρ * y)
-    return torch.where(y >= 0, y_sup, y_inf)
+class P3(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
+        ctx.save_for_backward(y, ρ, μ)
+        y_sup = μ * y + μ * ρ * y ** 2
+        y_inf = μ * y / (1 - ρ * y)
+        return torch.where(y >= 0, y_sup, y_inf)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        y, ρ, μ = ctx.saved_tensors
+        grad_y = grad_ρ = grad_μ = None
+
+        sup = y >= 0
+        if ctx.needs_input_grad[0]:
+            grad_y = grad_output * torch.where(sup, μ + 2 * μ * ρ * y, μ / (1 - ρ * y) ** 2)
+        if ctx.needs_input_grad[1]:
+            grad_ρ = grad_output * torch.where(sup, μ * y ** 2, μ * y ** 2 / (1 - ρ * y) ** 2)
+        if ctx.needs_input_grad[2]:
+            grad_μ = grad_output * torch.where(sup, y * (1 + ρ * y), y / (1 - ρ * y))
+
+        return grad_y, grad_ρ, grad_μ
 
 
 class GenericPenaltyLagrangian:
