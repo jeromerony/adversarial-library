@@ -138,7 +138,7 @@ class HyperExp:
     @staticmethod
     def __call__(t: Tensor) -> Tensor:
         y_sup = safe_exp(4 * t - 2)
-        y_inf = t / (1 - t)
+        y_inf = t / (1 - t.clamp(max=0.5))
         return torch.where(t >= 0.5, y_sup, y_inf)
 
     @staticmethod
@@ -154,7 +154,7 @@ class HyperQuad:
     @staticmethod
     def __call__(t: Tensor) -> Tensor:
         y_sup = 8 * t ** 2 - 4 * t + 1
-        y_inf = t / (1 - t)
+        y_inf = t / (1 - t.clamp(max=0.5))
         return torch.where(t >= 0.5, y_sup, y_inf)
 
     @staticmethod
