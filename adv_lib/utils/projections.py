@@ -4,6 +4,31 @@ import torch
 from torch import Tensor
 
 
+def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
+    """
+    Simplex projection based on sorting.
+
+    Parameters
+    ----------
+    x : Tensor
+        Batch of vectors to project on the simplex.
+    ε : float or Tensor
+        Size of the simplex, default to 1 for the probability simplex.
+
+    Returns
+    -------
+    projected_x : Tensor
+        Batch of projected vectors on the simplex.
+    """
+    u = x.sort(dim=1, descending=True)[0]
+    ε = ε.unsqueeze(1) if isinstance(ε, Tensor) else torch.tensor(ε, device=x.device)
+    indices = torch.arange(x.size(1), device=x.device)
+    cumsum = (torch.cumsum(u, dim=1) - ε) / (indices + 1)
+    K = (indices * (cumsum >= u)).max(dim=1, keepdim=True)[0]
+    τ = cumsum.gather(1, K)
+    return (x - τ).clamp_min(0)
+
+
 def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: bool = False) -> Tensor:
     """
     Compute Euclidean projection onto the L1 ball for a batch.
@@ -38,16 +63,12 @@ def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: b
         International Conference on Machine Learning (ICML 2008)
     """
     if (to_project := x.norm(p=1, dim=1) > ε).any():
-        x_to_project = x[to_project].abs()
+        x_to_project = x[to_project]
         ε_ = ε[to_project] if isinstance(ε, Tensor) else torch.tensor([ε], device=x.device)
         if not inplace:
             x = x.clone()
-        μ = x_to_project.sort(dim=1, descending=True)[0]
-        cumsum = μ.cumsum(dim=1)
-        j_s = torch.arange(1, x.shape[-1] + 1, device=x.device).unsqueeze(0)
-        ρ = (((μ * j_s) > (cumsum - ε_.unsqueeze(1))) * j_s).argmax(dim=1, keepdim=True)
-        θ = (cumsum.gather(dim=1, index=ρ) - ε_.unsqueeze(1)) / (ρ + 1)
-        x[to_project] = (x_to_project - θ).clamp_min(0) * x[to_project].sign()
+        simplex_proj = simplex_projection(x_to_project.abs(), ε=ε_)
+        x[to_project] = x_to_project.sign() * simplex_proj
         return x
     else:
         return x
