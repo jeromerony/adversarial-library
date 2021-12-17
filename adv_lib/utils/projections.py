@@ -24,7 +24,7 @@ def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
     ε = ε.unsqueeze(1) if isinstance(ε, Tensor) else torch.tensor(ε, device=x.device)
     indices = torch.arange(x.size(1), device=x.device)
     cumsum = (torch.cumsum(u, dim=1) - ε) / (indices + 1)
-    K = (indices * (cumsum >= u)).max(dim=1, keepdim=True)[0]
+    K = (indices * (cumsum < u)).max(dim=1, keepdim=True)[0]
     τ = cumsum.gather(1, K)
     return (x - τ).clamp_min(0)
 
