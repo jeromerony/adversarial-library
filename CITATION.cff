@@ -1,0 +1,27 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: Adversarial Library
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Jérôme
+    family-names: Rony
+    affiliation: ÉTS Montréal
+    orcid: 'https://orcid.org/0000-0002-6359-6142'
+  - given-names: Ismail
+    family-names: Ben Ayed
+    affiliation: ÉTS Montréal
+    orcid: 'https://orcid.org/0000-0002-9668-8027'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.5815064
+repository-code: 'https://github.com/jeromerony/adversarial-library'
+keywords:
+  - machine learning
+  - adversarial examples
+  - pytorch
+license: BSD-3-Clause
