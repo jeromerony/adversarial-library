@@ -1,4 +1,7 @@
-# adversarial-library
+
+[![DOI](https://zenodo.org/badge/315504148.svg)](https://zenodo.org/badge/latestdoi/315504148)
+
+# Adversarial Library
 
 This library contains various resources related to adversarial attacks implemented in PyTorch. It is aimed towards researchers looking for implementations of state-of-the-art attacks.
 
@@ -73,13 +76,4 @@ Suggestions and contributions are welcome :)
 
 ## Citation
 
-If this library has been useful for your research, you can cite it as follows:
-
-```bibtex
-@misc{rony2020adversarial,
-   title={Adversarial Library},
-   author={Rony, J{\'e}r{\^o}me and {Ben Ayed}, Ismail},
-   year={2020},
-   url={https://github.com/jeromerony/adversarial-library}
-}
-```
+If this library has been useful for your research, you can cite it using the "Cite this repository" button in the "About" section.
