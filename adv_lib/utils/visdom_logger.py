@@ -48,7 +48,7 @@ class VisdomLogger:
 
         if isinstance(x, (int, float)):
             X = torch.tensor([x])
-        elif isinstance(X, Tensor):
+        elif isinstance(x, Tensor):
             X = self.as_unsqueezed_tensor(x)
 
         if Y.ndim == 2 and X.ndim == 1:
