@@ -218,8 +218,6 @@ def alma(model: nn.Module,
             δ_grad = torch.where(batch_view(grad_norm <= 1e-6), randn_grad, δ_grad)
             lr = init_lr_finder(inputs, δ_grad, dist_func, target_distance=init_lr_distance)
 
-        δ.grad = δ_grad
-
         exp_decay = lr_reduction ** ((i - step_found).clamp_min(0) / (num_steps - step_found))
         step_lr = lr * exp_decay
         square_avg.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
