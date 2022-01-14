@@ -1,17 +1,16 @@
 from functools import partial
-from typing import Optional, Callable
+from typing import Callable, Optional
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.autograd import grad
 
 from adv_lib.distances.color_difference import ciede2000_loss
-from adv_lib.distances.lp_norms import l2_distances, l1_distances
+from adv_lib.distances.lp_norms import l1_distances, l2_distances
 from adv_lib.distances.lpips import LPIPS
-from adv_lib.distances.structural_similarity import ssim_loss, ms_ssim_loss
+from adv_lib.distances.structural_similarity import ms_ssim_loss, ssim_loss
 from adv_lib.utils.lagrangian_penalties import all_penalties
 from adv_lib.utils.losses import difference_of_logits_ratio
-from adv_lib.utils.optimizers import RMSprop
 from adv_lib.utils.visdom_logger import VisdomLogger
 
 
@@ -154,8 +153,10 @@ def alma(model: nn.Module,
 
     # Setup variables
     δ = torch.zeros_like(inputs, requires_grad=True)
-    optimizer = RMSprop([δ], lr=1, alpha=α_rms or α, momentum=momentum or α)
+    square_avg = torch.ones_like(inputs)
+    momentum_buffer = torch.zeros_like(inputs)
     lr = torch.full((batch_size,), lr_init, device=device, dtype=torch.float)
+    α_rms, momentum = α_rms or α, momentum or α
 
     # Init rho and mu
     μ = torch.full((batch_size,), μ_init, device=device, dtype=torch.float)
@@ -220,8 +221,11 @@ def alma(model: nn.Module,
         δ.grad = δ_grad
 
         exp_decay = lr_reduction ** ((i - step_found).clamp_min(0) / (num_steps - step_found))
-        optimizer.param_groups[0]['lr'] = batch_view(lr * exp_decay)
-        optimizer.step()
+        step_lr = lr * exp_decay
+        square_avg.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
+        momentum_buffer.mul_(momentum).addcdiv_(δ_grad, square_avg.sqrt().add_(1e-8))
+        δ.data.sub_(batch_view(step_lr) * momentum_buffer)
+
         δ.data.add_(inputs).clamp_(0, 1)
         if levels is not None:
             δ.data.mul_(levels - 1).round_().div_(levels - 1)
@@ -229,12 +233,11 @@ def alma(model: nn.Module,
 
         if callback:
             cb_best_dist = best_dist.masked_select(adv_found).mean()
-            cb_lr = torch.as_tensor(optimizer.param_groups[0]['lr'], device=device).mean()
             callback.accumulate_line([distance, 'dlr'], i, [dist.mean(), dlr.mean()])
             callback.accumulate_line(['μ_c', 'ρ_c'], i, [μ.mean(), ρ.mean()])
             callback.accumulate_line('grad_norm', i, grad_norm.mean())
             callback.accumulate_line(['best_{}'.format(distance), 'success', 'lr'], i,
-                                     [cb_best_dist, adv_found.float().mean(), cb_lr])
+                                     [cb_best_dist, adv_found.float().mean(), step_lr.mean()])
 
             if (i + 1) % (num_steps // 20) == 0 or (i + 1) == num_steps:
                 callback.update_lines()
