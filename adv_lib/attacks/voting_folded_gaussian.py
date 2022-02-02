@@ -79,8 +79,8 @@ def vfga(model: nn.Module,
         θ_plus = 1 - inputs_.flatten(1).gather(1, i_plus)
         θ_minus = inputs_.flatten(1).gather(1, i_minus)
         # generate random perturbation from folded Gaussian noise
-        S_plus = θ_plus.sqrt() * torch.randn(batch_size_, n_samples, device=device).abs()
-        S_minus = -θ_minus.sqrt() * torch.randn(batch_size_, n_samples, device=device).abs()
+        S_plus = θ_plus * torch.randn(batch_size_, n_samples, device=device).abs()
+        S_minus = -θ_minus * torch.randn(batch_size_, n_samples, device=device).abs()
 
         # add perturbation to inputs
         perturbed_inputs = inputs_.flatten(1).unsqueeze(1).repeat(1, 2 * n_samples, 1)
