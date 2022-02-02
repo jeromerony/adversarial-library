@@ -45,6 +45,7 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 |--------------------------------------------------------|-----------|---------|-----------------------------------------------------------|----------------------------------|
 | Carlini and Wagner (C&W)                               | White-box | Minimal | L<sub>2</sub>, L<sub>∞</sub>                              | [1608.04644](https://arxiv.org/abs/1608.04644) |
 | Projected Gradient Descent (PGD)                       | White-box | Budget  | L<sub>∞</sub>                                             | [1706.06083](https://arxiv.org/abs/1706.06083) |
+| Structured Adversarial Attack                          | White-box | Minimal | L<sub>2</sub> + group-sparsity                            | [1808.01664](https://arxiv.org/abs/1808.01664) |
 | **Decoupled Direction and Norm (DDN)**                 | White-box | Minimal | L<sub>2</sub>                                             | [1811.09600](https://arxiv.org/abs/1811.09600) |
 | Trust Region (TR)                                      | White-box | Minimal | L<sub>2</sub>, L<sub>∞</sub>                              | [1812.06371](https://arxiv.org/abs/1812.06371) |
 | Fast Adaptive Boundary (FAB)                           | White-box | Minimal | L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>               | [1907.02044](https://arxiv.org/abs/1907.02044) |
