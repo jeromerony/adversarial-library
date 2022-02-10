@@ -143,7 +143,7 @@ def tr(model: nn.Module,
     for _ in range(iter):
 
         logits = model(adv_inputs[to_attack])
-        to_attack[to_attack] = logits.argmax(dim=1) == labels[to_attack]
+        to_attack.masked_scatter_(to_attack, logits.argmax(dim=1) == labels[to_attack])
         if (~to_attack).all():
             break
         adv_inputs[to_attack], eps[to_attack] = attack_step(inputs=adv_inputs[to_attack], labels=labels[to_attack],
