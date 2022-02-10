@@ -297,23 +297,21 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
     device = x.device
     shape = x.shape
     x, y = x.flatten(1), y.flatten(1)
-    sigma = y.sign()
-    u = torch.min(1 - x - y, x + y).clamp_max(0)
-    l = -y.abs()
+    u = torch.min(1 - x - y, x + y).clamp_max_(0)
+    l = y.abs().neg_()
     d = u.clone()
 
-    bs, indbs = torch.sort(-torch.cat((u, l), dim=1), dim=1)
+    bs, indbs = torch.sort(torch.cat((u, l), dim=1).neg_(), dim=1)
     bs2 = F.pad(bs[:, 1:], (0, 1))
 
-    inu = 2 * (indbs < u.shape[1]).float() - 1
-    size1 = inu.cumsum(dim=1)
+    inu = (indbs < u.shape[1]).float().mul_(2).sub_(1).cumsum_(dim=1)
 
-    s1 = -u.sum(dim=1)
+    s1 = u.sum(dim=1).neg_()
 
-    c = eps + l.sum(dim=1)
+    c = l.sum(dim=1).add_(eps)
     c5 = s1 + c < 0
 
-    s = s1.unsqueeze(-1) + torch.cumsum((bs2 - bs) * size1, dim=1)
+    s = (bs2 - bs).mul_(inu).cumsum_(dim=1).add_(s1.unsqueeze(-1))
 
     if c5.any():
         lb = torch.zeros(c5.sum(), device=device)
@@ -333,10 +331,10 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
             counter += 1
 
         lb2 = lb.long()
-        alpha = (-s[c5, lb2] - c[c5]) / size1[c5, lb2 + 1] + bs2[c5, lb2]
+        alpha = (-s[c5, lb2] - c[c5]) / inu[c5, lb2 + 1] + bs2[c5, lb2]
         d[c5] = -torch.min(torch.max(-u[c5], alpha.unsqueeze(-1)), -l[c5])
 
-    return (sigma * d).view(shape)
+    return d.mul_(y.sign()).view(shape)
 
 
 def check_oscillation(loss_steps: Tensor, j: int, k: int, k3: float = 0.75) -> Tensor:
@@ -416,7 +414,7 @@ def _apgd(model: nn.Module,
         k = max(int(0.04 * n_iter), 1)
         n_fts = inputs[0].numel()
         if x_init is None:
-            topk = 0.2 * torch.ones(len(inputs), device=device)
+            topk = torch.ones(len(inputs), device=device).mul_(0.2)
             sp_old = torch.full_like(topk, n_fts, dtype=torch.float)
         else:
             sp_old = (x_adv - inputs).flatten(1).norm(p=0, dim=1)
@@ -443,31 +441,30 @@ def _apgd(model: nn.Module,
             x_adv_1 = torch.min(torch.max(x_adv_1, lower), upper)
 
         elif norm == 2:
-            x_adv_1 = x_adv + batch_view(step_size) * grad / batch_view(grad.flatten(1).norm(p=2, dim=1) + 1e-12)
-            delta = x_adv_1 - inputs
-            delta_norm = delta.flatten(1).norm(p=2, dim=1)
-            x_adv_1 = (inputs + delta * batch_view(torch.min(delta_norm, eps) / (delta_norm + 1e-12))).clamp(0.0, 1.0)
+            delta = x_adv + grad.mul_(batch_view(step_size / grad.flatten(1).norm(p=2, dim=1).add_(1e-12)))
+            delta.sub_(inputs)
+            delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
+            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(0.0, 1.0)
 
             # momentum
-            x_adv_1 = x_adv + (x_adv_1 - x_adv) * a + grad2 * (1 - a)
-            delta = x_adv_1 - inputs
-            delta_norm = delta.flatten(1).norm(p=2, dim=1)
-            x_adv_1 = (inputs + delta * batch_view(torch.min(delta_norm, eps) / (delta_norm + 1e-12))).clamp(0.0, 1.0)
+            delta = x_adv.add(x_adv_1 - x_adv, alpha=a).add_(grad2, alpha=1 - a)
+            delta.sub_(inputs)
+            delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
+            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(0.0, 1.0)
 
         elif norm == 1:
             grad_abs = grad.abs()
             grad_topk = grad_abs.flatten(1).sort(dim=1).values
-            topk_curr = torch.clamp((1 - topk) * n_fts, min=0, max=n_fts - 1).long()
+            topk_curr = (1 - topk).mul_(n_fts).clamp_(min=0, max=n_fts - 1).long()
             grad_topk = grad_topk.gather(1, topk_curr.unsqueeze(1))
-            sparsegrad = grad * (grad_abs >= batch_view(grad_topk)).float()
-            sparsegrad_sign = sparsegrad.sign()
+            grad.mul_(grad_abs >= batch_view(grad_topk))
+            grad_sign = grad.sign()
 
-            x_adv_1 = x_adv + sparsegrad_sign * batch_view(
-                step_size / sparsegrad_sign.flatten(1).norm(p=1, dim=1).add(1e-10))
+            x_adv_1 = x_adv + grad_sign * batch_view(step_size / grad_sign.flatten(1).norm(p=1, dim=1).add_(1e-10))
 
-            delta_u = x_adv_1 - inputs
-            delta_p = l1_projection(inputs, delta_u, eps)
-            x_adv_1 = inputs + delta_u + delta_p
+            x_adv_1.sub_(inputs)
+            delta_p = l1_projection(inputs, x_adv_1, eps)
+            x_adv_1.add_(inputs).add_(delta_p)
 
         x_adv = x_adv_1
 

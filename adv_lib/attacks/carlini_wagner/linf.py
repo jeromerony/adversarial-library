@@ -110,7 +110,7 @@ def carlini_wagner_linf(model: nn.Module,
             logits = model(adv_inputs)
 
             if i == 0:
-                labels_infhot = torch.zeros_like(logits).scatter(1, labels[to_optimize].unsqueeze(1), float('inf'))
+                labels_infhot = torch.zeros_like(logits).scatter_(1, labels[to_optimize].unsqueeze(1), float('inf'))
 
             # adjust the best result found so far
             predicted_classes = logits.argmax(1)
@@ -123,8 +123,8 @@ def carlini_wagner_linf(model: nn.Module,
             best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
             logit_dists = multiplier * difference_of_logits(logits, labels_, labels_infhot=labels_infhot)
-            linf_loss = ((adv_inputs - inputs_).abs() - batch_view(τ_)).clamp_min(0).flatten(1).sum(1)
-            loss = linf_loss + c_ * logit_dists.clamp_min(0)
+            linf_loss = (adv_inputs - inputs_).abs_().sub_(batch_view(τ_)).clamp_min_(0).flatten(1).sum(1)
+            loss = linf_loss + c_ * logit_dists.clamp_min_(0)
 
             # check if we should abort search
             if abort_early and (loss < 0.0001 * c_).all():

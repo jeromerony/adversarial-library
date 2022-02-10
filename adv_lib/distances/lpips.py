@@ -94,6 +94,6 @@ class LPIPS(nn.Module):
             raise ValueError('Must provide targets (either in init or in forward).')
 
         if self.squared:
-            return _feature_difference(input_features, target_features).pow(2).sum(dim=1)
+            return _feature_difference(input_features, target_features).square().sum(dim=1)
 
         return torch.norm(_feature_difference(input_features, target_features), p=2, dim=1)

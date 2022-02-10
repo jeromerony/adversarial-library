@@ -154,10 +154,10 @@ def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplan
     lb = lb.long()
 
     if c_l.any():
-        lmbd_opt = torch.clamp_min((b[c_l] - sb[c_l, -1]) / (-s[c_l, -1]), min=0).unsqueeze(-1)
+        lmbd_opt = ((b[c_l] - sb[c_l, -1]) / (-s[c_l, -1])).clamp_min_(min=0).unsqueeze_(-1)
         d[c_l] = (2 * a[c_l] - 1) * lmbd_opt
 
-    lmbd_opt = torch.clamp_min((b[c2] - sb[c2, lb]) / (-s[c2, lb]), min=0).unsqueeze(-1)
+    lmbd_opt = ((b[c2] - sb[c2, lb]) / (-s[c2, lb])).clamp_min_(min=0).unsqueeze_(-1)
     d[c2] = torch.min(lmbd_opt, d[c2]) * a[c2] + torch.max(-lmbd_opt, d[c2]) * (1 - a[c2])
 
     return d * (w != 0).float()

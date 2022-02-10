@@ -181,7 +181,7 @@ def alma(model: nn.Module,
         dist = dist_func(adv_inputs)
 
         if i == 0:
-            labels_infhot = torch.zeros_like(logits.detach()).scatter(1, labels.unsqueeze(1), float('inf'))
+            labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
             dlr_func = partial(difference_of_logits_ratio, labels=labels, labels_infhot=labels_infhot,
                                targeted=targeted, ε=logit_tolerance)
 
@@ -218,7 +218,7 @@ def alma(model: nn.Module,
             δ_grad = torch.where(batch_view(grad_norm <= 1e-6), randn_grad, δ_grad)
             lr = init_lr_finder(inputs, δ_grad, dist_func, target_distance=init_lr_distance)
 
-        exp_decay = lr_reduction ** ((i - step_found).clamp_min(0) / (num_steps - step_found))
+        exp_decay = lr_reduction ** ((i - step_found).clamp_min_(0) / (num_steps - step_found))
         step_lr = lr * exp_decay
         square_avg.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
         momentum_buffer.mul_(momentum).addcdiv_(δ_grad, square_avg.sqrt().add_(1e-8))

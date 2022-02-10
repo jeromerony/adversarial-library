@@ -14,7 +14,7 @@ from adv_lib.utils.projections import l1_ball_euclidean_projection
 
 def l0_projection(δ: Tensor, ε: Tensor) -> Tensor:
     δ_abs = δ.flatten(1).abs()
-    sorted_indices = δ_abs.argsort(dim=1, descending=True).gather(1, (ε.long().unsqueeze(1) - 1).clamp_min(0))
+    sorted_indices = δ_abs.argsort(dim=1, descending=True).gather(1, (ε.long().unsqueeze(1) - 1).clamp_min_(0))
     thresholds = δ_abs.gather(1, sorted_indices)
     return torch.where((δ_abs >= thresholds).view_as(δ), δ, torch.zeros(1, device=δ.device))
 
@@ -24,8 +24,8 @@ def l1_projection(δ: Tensor, ε: Tensor) -> Tensor:
 
 
 def l2_projection(δ: Tensor, ε: Tensor) -> Tensor:
-    l2_norms = δ.flatten(1).norm(p=2, dim=1, keepdim=True).clamp_min(1e-6)
-    return (δ.flatten(1) * (ε.unsqueeze(1) / l2_norms).clamp_max(1)).view_as(δ)
+    l2_norms = δ.flatten(1).norm(p=2, dim=1, keepdim=True).clamp_min_(1e-6)
+    return (δ.flatten(1) * (ε.unsqueeze(1) / l2_norms).clamp_max_(1)).view_as(δ)
 
 
 def linf_projection(δ: Tensor, ε: Tensor) -> Tensor:
@@ -42,14 +42,14 @@ def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     threshold = (1 - ε).unsqueeze(1)
     δ = (x1 - x0).flatten(1)
     δ_abs = δ.abs()
-    mask = δ.abs() > threshold
-    mid_points = δ.sign() * (δ_abs - threshold)
+    mask = δ_abs > threshold
+    mid_points = δ_abs.sub_(threshold).copysign_(δ)
     return torch.where(mask.view_as(x0), x0 + mid_points.view_as(x0), x0)
 
 
 def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     ε = ε.unsqueeze(1)
-    return ((1 - ε) * x0.flatten(1) + ε * x1.flatten(1)).view_as(x0)
+    return x0.flatten(1).mul(1 - ε).add_(ε * x1.flatten(1)).view_as(x0)
 
 
 def linf_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -161,7 +161,7 @@ def fmn(model: nn.Module,
         pred_labels = logits.argmax(dim=1)
 
         if i == 0:
-            labels_infhot = torch.zeros_like(logits.detach()).scatter(1, labels.unsqueeze(1), float('inf'))
+            labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
             logit_diff_func = partial(difference_of_logits, labels=labels, labels_infhot=labels_infhot)
 
         logit_diffs = logit_diff_func(logits=logits)
@@ -177,11 +177,11 @@ def fmn(model: nn.Module,
 
         if norm == 0:
             ε = torch.where(is_adv,
-                            torch.minimum(torch.minimum(ε - 1, (ε * (1 - γ)).long().float()), best_norm),
-                            torch.maximum(ε + 1, (ε * (1 + γ)).long().float()))
+                            torch.minimum(torch.minimum(ε - 1, (ε * (1 - γ)).floor_()), best_norm),
+                            torch.maximum(ε + 1, (ε * (1 + γ)).floor_()))
             ε.clamp_min_(0)
         else:
-            distance_to_boundary = loss.detach().abs() / δ_grad.flatten(1).norm(p=dual, dim=1).clamp_min(1e-12)
+            distance_to_boundary = loss.detach().abs() / δ_grad.flatten(1).norm(p=dual, dim=1).clamp_min_(1e-12)
             ε = torch.where(is_adv,
                             torch.minimum(ε * (1 - γ), best_norm),
                             torch.where(adv_found, ε * (1 + γ), δ_norm + distance_to_boundary))
@@ -190,7 +190,7 @@ def fmn(model: nn.Module,
         ε = torch.minimum(ε, worst_norm)
 
         # normalize gradient
-        grad_l2_norms = δ_grad.flatten(1).norm(p=2, dim=1).clamp_min(1e-12)
+        grad_l2_norms = δ_grad.flatten(1).norm(p=2, dim=1).clamp_min_(1e-12)
         δ_grad.div_(batch_view(grad_l2_norms))
 
         # gradient ascent step

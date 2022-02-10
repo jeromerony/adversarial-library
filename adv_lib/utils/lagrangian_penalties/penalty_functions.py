@@ -16,7 +16,7 @@ __all__ = [
 
 
 def PHRQuad(y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:
-    return ((μ + ρ * y).relu().pow(2) - μ ** 2).div(2 * ρ)
+    return ((μ + ρ * y).relu().square() - μ ** 2).div(2 * ρ)
 
 
 def P1(y: Tensor, ρ: Tensor, μ: Tensor) -> Tensor:

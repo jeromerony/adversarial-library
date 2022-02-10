@@ -91,7 +91,7 @@ def _pgd_linf(model: nn.Module,
         logits = model(inputs + δ)
 
         if i == 0 and loss_function.lower() in ['dl', 'dlr']:
-            labels_infhot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), float('inf'))
+            labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
             loss_func = partial(loss_func, labels_infhot=labels_infhot)
 
         loss = multiplier * loss_func(logits, labels)

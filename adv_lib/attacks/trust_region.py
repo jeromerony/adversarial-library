@@ -32,7 +32,7 @@ def select_index(model: nn.Module,
         other_logits = logits[:, i + 1]
         other_grad = grad(other_logits.sum(), inputs, only_inputs=True, retain_graph=i + 1 != c)[0]
         grad_dual_norm = (top_grad - other_grad).flatten(1).norm(p=dual, dim=1)
-        pers.append((top_logits.detach() - other_logits.detach()) / grad_dual_norm)
+        pers.append((top_logits.detach() - other_logits.detach()).div_(grad_dual_norm))
 
     pers = torch.stack(pers, dim=1)
     inputs.detach_()
@@ -40,7 +40,7 @@ def select_index(model: nn.Module,
     if worst_case:
         index = pers.argmax(dim=1, keepdim=True)
     else:
-        index = pers.clamp_min(0).argmin(dim=1, keepdim=True)
+        index = pers.clamp_min_(0).argmin(dim=1, keepdim=True)
 
     return indices.gather(1, index + 1).squeeze(1)
 
@@ -61,15 +61,15 @@ def _step(model: nn.Module,
 
     grad_inputs = grad(logit_diff.sum(), inputs, only_inputs=True)[0].flatten(1)
     inputs.detach_()
-    per = -logit_diff.detach() / grad_inputs.norm(p=dual, dim=1).clamp_min(1e-6)
+    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_min_(1e-6))
 
     if p == float('inf'):
         grad_inputs.sign_()
     elif p == 2:
-        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min(1e-6))
+        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min_(1e-6))
 
     per = torch.min(per, eps)
-    adv_inputs = inputs + ((1.02 * per.add(1e-4)).unsqueeze(1) * grad_inputs).view_as(inputs)
+    adv_inputs = grad_inputs.mul_(per.add_(1e-4).mul_(1.02).unsqueeze(1)).view_as(inputs).add_(inputs)
     adv_inputs.clamp_(0, 1)
     return adv_inputs, eps
 
@@ -92,22 +92,22 @@ def _adaptive_step(model: nn.Module,
 
     grad_inputs = grad(logit_diff.sum(), inputs, only_inputs=True)[0].flatten(1)
     inputs.detach_()
-    per = -logit_diff.detach() / grad_inputs.norm(p=dual, dim=1).clamp_min(1e-6)
+    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_min_(1e-6))
 
     if p == float('inf'):
         grad_inputs.sign_()
     elif p == 2:
-        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min(1e-6))
+        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min_(1e-6))
 
     new_eps = torch.min(per, eps)
 
-    adv_inputs = inputs + ((1.02 * new_eps.add(1e-4)).unsqueeze(1) * grad_inputs).view_as(inputs)
+    adv_inputs = grad_inputs.mul_(new_eps.add(1e-4).mul_(1.02).unsqueeze_(1)).view_as(inputs).add_(inputs)
     adv_inputs.clamp_(0, 1)
 
     adv_logits = model(adv_inputs)
     class_adv_logits = adv_logits.gather(1, labels.unsqueeze(1)).squeeze(1)
 
-    obj_diff = (class_logits - class_adv_logits) / new_eps
+    obj_diff = (class_logits - class_adv_logits).div_(new_eps)
     increase = obj_diff > 0.9
     decrease = obj_diff < 0.5
     new_eps = torch.where(increase, new_eps * 1.2, torch.where(decrease, new_eps / 1.2, new_eps))

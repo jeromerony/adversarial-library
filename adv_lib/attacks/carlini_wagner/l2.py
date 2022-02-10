@@ -95,14 +95,14 @@ def carlini_wagner_l2(model: nn.Module,
         for i in range(max_iterations):
 
             adv_inputs = torch.tanh(t_inputs + modifier) * boxmul + boxplus
-            l2_squared = (adv_inputs - inputs).flatten(1).pow(2).sum(1)
+            l2_squared = (adv_inputs - inputs).flatten(1).square().sum(1)
             l2 = l2_squared.detach().sqrt()
             logits = model(adv_inputs)
 
             if outer_step == 0 and i == 0:
                 # setup the target variable, we need it to be in one-hot form for the loss function
-                labels_onehot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), 1)
-                labels_infhot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), float('inf'))
+                labels_onehot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), 1)
+                labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
 
             # adjust the best result found so far
             predicted_classes = (logits - labels_onehot * confidence).argmax(1) if targeted else \
@@ -121,7 +121,7 @@ def carlini_wagner_l2(model: nn.Module,
             o_best_adv = torch.where(batch_view(o_is_both), adv_inputs.detach(), o_best_adv)
 
             logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
-            loss = l2_squared + c * (logit_dists + confidence).clamp_min(0)
+            loss = l2_squared + c * (logit_dists + confidence).clamp_min_(0)
 
             # check if we should abort search if we're getting nowhere.
             if abort_early and i % (max_iterations // 10) == 0:
@@ -129,7 +129,7 @@ def carlini_wagner_l2(model: nn.Module,
                     break
                 prev = loss.detach()
 
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
             modifier.grad = grad(loss.sum(), modifier, only_inputs=True)[0]
             optimizer.step()
 

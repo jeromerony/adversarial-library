@@ -130,8 +130,8 @@ def str_attack(model: nn.Module,
 
             if outer_step == 0 and i == 0:
                 # setup the target variable, we need it to be in one-hot form for the loss function
-                labels_onehot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), 1)
-                labels_infhot = torch.zeros_like(logits).scatter(1, labels.unsqueeze(1), float('inf'))
+                labels_onehot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), 1)
+                labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
 
             logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
             loss = const * (logit_dists + confidence).clamp_min(0)

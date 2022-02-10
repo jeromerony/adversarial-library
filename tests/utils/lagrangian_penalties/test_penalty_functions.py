@@ -8,8 +8,8 @@ from adv_lib.utils.lagrangian_penalties import all_penalties
 @pytest.mark.parametrize('penalty', list(all_penalties.values()))
 def test_grad(penalty) -> None:
     y = torch.randn(512, dtype=torch.double, requires_grad=True)
-    ρ = torch.randn(512, dtype=torch.double).abs().clamp_min(1e-3)
-    μ = torch.randn(512, dtype=torch.double).abs().clamp_min(1e-6)
+    ρ = torch.randn(512, dtype=torch.double).abs_().clamp_min_(1e-3)
+    μ = torch.randn(512, dtype=torch.double).abs_().clamp_min_(1e-6)
     ρ.requires_grad_(True)
     μ.requires_grad_(True)
 

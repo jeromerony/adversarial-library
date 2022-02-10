@@ -15,4 +15,4 @@ linf_distances = partial(lp_distances, p=float('inf'))
 
 
 def squared_l2_distances(x1: Tensor, x2: Tensor, dim: int = 1) -> Tensor:
-    return (x1 - x2).pow(2).flatten(dim).sum(dim)
+    return (x1 - x2).square().flatten(dim).sum(dim)
