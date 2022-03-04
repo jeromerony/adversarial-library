@@ -33,7 +33,7 @@ class VisdomLogger:
         return data.unsqueeze(0) if data.ndim == 0 else data
 
     def accumulate_line(self, names: Union[str, List[str]], x: Union[float, Tensor],
-                        y: Union[float, Tensor, List[Tensor]], title: str = '') -> None:
+                        y: Union[float, Tensor, List[Tensor]], title: str = '', **kwargs) -> None:
         if isinstance(names, str):
             names = [names]
         data = self.windows['$'.join(names)]
@@ -56,7 +56,7 @@ class VisdomLogger:
 
         if len(data.to_plot) == 0:
             data.to_plot = {'X': X, 'Y': Y, 'win': data.window, 'update': update,
-                            'opts': {'legend': names, 'title': title}}
+                            'opts': {'legend': names, 'title': title, **kwargs}}
         else:
             data.to_plot['X'] = torch.cat((data.to_plot['X'], X), 0)
             data.to_plot['Y'] = torch.cat((data.to_plot['Y'], Y), 0)
@@ -76,8 +76,8 @@ class VisdomLogger:
                 data.to_plot = {}
 
     def line(self, names: Union[str, List[str]], x: Union[float, Tensor], y: Union[float, Tensor, List[Tensor]],
-             title: str = '') -> None:
-        self.accumulate_line(names=names, x=x, y=y, title=title)
+             title: str = '', **kwargs) -> None:
+        self.accumulate_line(names=names, x=x, y=y, title=title, **kwargs)
         self.update_lines()
 
     def images(self, name: str, images: Tensor, mean_std: Optional[Tuple[List[float], List[float]]] = None,
