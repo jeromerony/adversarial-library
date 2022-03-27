@@ -123,8 +123,8 @@ def carlini_wagner_linf(model: nn.Module,
             best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
             logit_dists = multiplier * difference_of_logits(logits, labels_, labels_infhot=labels_infhot)
-            linf_loss = (adv_inputs - inputs_).abs_().sub_(batch_view(τ_)).clamp_min_(0).flatten(1).sum(1)
-            loss = linf_loss + c_ * logit_dists.clamp_min_(0)
+            linf_loss = (adv_inputs - inputs_).abs_().sub_(batch_view(τ_)).clamp_(min=0).flatten(1).sum(1)
+            loss = linf_loss + c_ * logit_dists.clamp_(min=0)
 
             # check if we should abort search
             if abort_early and (loss < 0.0001 * c_).all():

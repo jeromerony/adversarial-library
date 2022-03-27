@@ -14,7 +14,7 @@ def projection_l1(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     w.mul_(ind2.unsqueeze(1))
     c.mul_(ind2)
 
-    r = (1 / w).abs().clamp_max(1e12)
+    r = (1 / w).abs().clamp_(max=1e12)
     indr = torch.argsort(r, dim=1)
     indr_rev = torch.argsort(indr)
 
@@ -62,7 +62,7 @@ def projection_l2(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplane:
     w.mul_(ind2.unsqueeze(1))
     c.mul_(ind2)
 
-    r = torch.max(t / w, (t - 1) / w).clamp(min=-1e12, max=1e12)
+    r = torch.max(t / w, (t - 1) / w).clamp_(min=-1e12, max=1e12)
     r.masked_fill_(w.abs() < 1e-8, 1e12)
     r[r == -1e12] *= -1
     rs, indr = torch.sort(r, dim=1)
@@ -154,10 +154,10 @@ def projection_linf(points_to_project: Tensor, w_hyperplane: Tensor, b_hyperplan
     lb = lb.long()
 
     if c_l.any():
-        lmbd_opt = ((b[c_l] - sb[c_l, -1]) / (-s[c_l, -1])).clamp_min_(min=0).unsqueeze_(-1)
+        lmbd_opt = ((b[c_l] - sb[c_l, -1]) / (-s[c_l, -1])).clamp_(min=0).unsqueeze_(-1)
         d[c_l] = (2 * a[c_l] - 1) * lmbd_opt
 
-    lmbd_opt = ((b[c2] - sb[c2, lb]) / (-s[c2, lb])).clamp_min_(min=0).unsqueeze_(-1)
+    lmbd_opt = ((b[c2] - sb[c2, lb]) / (-s[c2, lb])).clamp_(min=0).unsqueeze_(-1)
     d[c2] = torch.min(lmbd_opt, d[c2]) * a[c2] + torch.max(-lmbd_opt, d[c2]) * (1 - a[c2])
 
     return d * (w != 0).float()

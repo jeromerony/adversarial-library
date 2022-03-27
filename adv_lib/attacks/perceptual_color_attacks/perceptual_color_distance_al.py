@@ -107,7 +107,7 @@ def perc_al(model: nn.Module,
         delta.data[mask_isadv] = delta.data[mask_isadv] - alpha_c * (grad_color.permute(1, 2, 3, 0) / torch.norm(
             grad_color.flatten(1), dim=1)).permute(3, 0, 1, 2)[mask_isadv]
 
-        delta.data = (images + delta.data).clamp(0, 1) - images
+        delta.data = (images + delta.data).clamp_(min=0, max=1) - images
         X_adv_round = quantization(images + delta.data)
 
         if (targeted == False) and confidence != 0:

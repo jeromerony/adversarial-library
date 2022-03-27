@@ -47,7 +47,7 @@ def cie94_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C: fl
     ΔE_94_squared = (ΔL / (k_L * S_L)) ** 2 + (ΔC / (k_C * S_C)) ** 2 + ΔH / ((k_H * S_H) ** 2)
     if squared:
         return ΔE_94_squared
-    return ΔE_94_squared.clamp_min(ε).sqrt()
+    return ΔE_94_squared.clamp(min=ε).sqrt()
 
 
 def rgb_cie94_color_difference(input: Tensor, target: Tensor, **kwargs) -> Tensor:
@@ -78,7 +78,7 @@ def cie94_loss(x1: Tensor, x2: Tensor, squared: bool = False, **kwargs) -> Tenso
     ε = kwargs.get('ε', 0)
     if squared:
         return ΔE_94_squared.sum(1)
-    return ΔE_94_squared.sum(1).clamp_min(ε).sqrt()
+    return ΔE_94_squared.sum(1).clamp(min=ε).sqrt()
 
 
 def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C: float = 1, k_H: float = 1,
@@ -125,7 +125,7 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
     C_star_2 = torch.norm(torch.stack((a_star_2, b_star_2), dim=1), p=2, dim=1)
     C_star_bar = (C_star_1 + C_star_2) / 2
     C7 = C_star_bar ** 7
-    G = 0.5 * (1 - (C7 / (C7 + 25 ** 7)).clamp_min(ε).sqrt())
+    G = 0.5 * (1 - (C7 / (C7 + 25 ** 7)).clamp(min=ε).sqrt())
 
     scale = 1 + G
     a_1 = scale * a_star_1
@@ -153,7 +153,7 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
                      torch.where(h_abs_diff_compare, h_diff,
                                  torch.where(h_diff > π, h_diff - 2 * π, h_diff + 2 * π)))
 
-    ΔH = 2 * (C_1 * C_2).clamp_min(ε).sqrt() * torch.sin(Δh / 2)
+    ΔH = 2 * (C_1 * C_2).clamp(min=ε).sqrt() * torch.sin(Δh / 2)
     ΔH_squared = 4 * C_1 * C_2 * torch.sin(Δh / 2) ** 2
 
     L_bar = (L_star_1 + L_star_2) / 2
@@ -168,7 +168,7 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
 
     Δθ = π / 6 * (torch.exp(-((180 / π * h_bar - 275) / 25) ** 2))
     C7 = C_bar ** 7
-    R_C = 2 * (C7 / (C7 + 25 ** 7)).clamp_min(ε).sqrt()
+    R_C = 2 * (C7 / (C7 + 25 ** 7)).clamp(min=ε).sqrt()
     S_L = 1 + 0.015 * (L_bar - 50) ** 2 / torch.sqrt(20 + (L_bar - 50) ** 2)
     S_C = 1 + 0.045 * C_bar
     S_H = 1 + 0.015 * C_bar * T
@@ -178,7 +178,7 @@ def ciede2000_color_difference(Lab_1: Tensor, Lab_2: Tensor, k_L: float = 1, k_C
             R_T * (ΔC / (k_C * S_C)) * (ΔH / (k_H * S_H))
     if squared:
         return ΔE_00
-    return ΔE_00.clamp_min(ε).sqrt()
+    return ΔE_00.clamp(min=ε).sqrt()
 
 
 def rgb_ciede2000_color_difference(input: Tensor, target: Tensor, **kwargs) -> Tensor:
@@ -209,4 +209,4 @@ def ciede2000_loss(x1: Tensor, x2: Tensor, squared: bool = False, **kwargs) -> T
     ε = kwargs.get('ε', 0)
     if squared:
         return ΔE_00.sum(1)
-    return ΔE_00.sum(1).clamp_min(ε).sqrt()
+    return ΔE_00.sum(1).clamp(min=ε).sqrt()

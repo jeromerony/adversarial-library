@@ -114,7 +114,7 @@ def pdgd(model: nn.Module,
         best_l2 = torch.where(is_both, l2.detach(), best_l2)
         best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
-        L_r = λ_ema[:, 0] * l2 + λ_ema[:, 1] * F.softplus(m_y.clamp_min(0))
+        L_r = λ_ema[:, 0] * l2 + λ_ema[:, 1] * F.softplus(m_y.clamp(min=0))
 
         grad_r = grad(L_r.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()
@@ -153,12 +153,12 @@ def l0_proximal(x: Tensor, λ: Tensor) -> Tensor:
 
 
 def l1_proximal(x: Tensor, λ: Tensor) -> Tensor:
-    return x.abs().sub_(λ).clamp_min_(0).copysign_(x)
+    return x.abs().sub_(λ).clamp_(min=0).copysign_(x)
 
 
 def l2_proximal(x: Tensor, λ: Tensor) -> Tensor:
     norms = x.flatten(1).norm(p=2, dim=1, keepdim=True)
-    return (x.flatten(1) * (λ.flatten(1) / norms.neg_()).add_(1).clamp_min_(0)).view_as(x)
+    return (x.flatten(1) * (λ.flatten(1) / norms.neg_()).add_(1).clamp_(min=0)).view_as(x)
 
 
 def linf_proximal(x: Tensor, λ: Tensor) -> Tensor:
@@ -303,7 +303,7 @@ def pdpgd(model: nn.Module,
         best_dist = torch.where(is_both, dist.detach(), best_dist)
         best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
-        cls_loss = F.softplus(m_y.clamp_min(0))
+        cls_loss = F.softplus(m_y.clamp(min=0))
 
         grad_r = grad(cls_loss.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()

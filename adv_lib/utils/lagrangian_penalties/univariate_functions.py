@@ -27,7 +27,7 @@ __all__ = [
 
 
 def safe_exp(x: Tensor) -> Tensor:
-    return torch.exp(x.clamp_max(87.5))
+    return torch.exp(x.clamp(max=87.5))
 
 
 class Quadratic:

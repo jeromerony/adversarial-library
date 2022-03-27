@@ -297,7 +297,7 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
     device = x.device
     shape = x.shape
     x, y = x.flatten(1), y.flatten(1)
-    u = torch.min(1 - x - y, x + y).clamp_max_(0)
+    u = torch.min(1 - x - y, x + y).clamp_(max=0)
     l = y.abs().neg_()
     d = u.clone()
 
@@ -365,7 +365,7 @@ def _apgd(model: nn.Module,
     batch_view = lambda tensor: tensor.view(-1, *[1] * (inputs.ndim - 1))
     criterion_indiv, multiplier = _loss_functions[loss_function.lower()]
 
-    lower, upper = (inputs - batch_view(eps)).clamp(0, 1), (inputs + batch_view(eps)).clamp(0, 1)
+    lower, upper = (inputs - batch_view(eps)).clamp_(min=0, max=1), (inputs + batch_view(eps)).clamp_(min=0, max=1)
 
     n_iter_2, n_iter_min, size_decr = max(int(0.22 * n_iter), 1), max(int(0.06 * n_iter), 1), max(int(0.03 * n_iter), 1)
 
@@ -382,7 +382,7 @@ def _apgd(model: nn.Module,
         delta = l1_projection(inputs, t, eps)
         x_adv = inputs + t + delta
 
-    x_adv.clamp_(0., 1.)
+    x_adv.clamp_(min=0, max=1)
     x_best = x_adv.clone()
     x_best_adv = inputs.clone()
     loss_steps = torch.zeros(n_iter, batch_size, device=device)
@@ -444,13 +444,15 @@ def _apgd(model: nn.Module,
             delta = x_adv + grad.mul_(batch_view(step_size / grad.flatten(1).norm(p=2, dim=1).add_(1e-12)))
             delta.sub_(inputs)
             delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
-            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(0.0, 1.0)
+            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(min=0,
+                                                                                                              max=1)
 
             # momentum
             delta = x_adv.add(x_adv_1 - x_adv, alpha=a).add_(grad2, alpha=1 - a)
             delta.sub_(inputs)
             delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
-            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(0.0, 1.0)
+            x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(min=0,
+                                                                                                              max=1)
 
         elif norm == 1:
             grad_abs = grad.abs()

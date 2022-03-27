@@ -26,7 +26,7 @@ def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
     cumsum = torch.cumsum(u, dim=1).sub_(ε).div_(indices + 1)
     K = (cumsum < u).long().mul_(indices).amax(dim=1, keepdim=True)
     τ = cumsum.gather(1, K)
-    return (x - τ).clamp_min_(0)
+    return (x - τ).clamp_(min=0)
 
 
 def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: bool = False) -> Tensor:

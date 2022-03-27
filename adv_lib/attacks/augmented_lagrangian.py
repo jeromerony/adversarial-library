@@ -40,15 +40,15 @@ def init_lr_finder(inputs: Tensor, grad: Tensor, distance_function: Callable, ta
     lr = torch.ones(batch_size, device=inputs.device)
     lower = torch.zeros_like(lr)
 
-    found_upper = distance_function((inputs - grad).clamp(0, 1)) > target_distance
+    found_upper = distance_function((inputs - grad).clamp_(min=0, max=1)) > target_distance
     while (~found_upper).any():
         lower = torch.where(found_upper, lower, lr)
         lr = torch.where(found_upper, lr, lr * 2)
-        found_upper = distance_function((inputs - batch_view(lr) * grad).clamp(0, 1)) > target_distance
+        found_upper = distance_function((inputs - batch_view(lr) * grad).clamp_(min=0, max=1)) > target_distance
 
     for i in range(20):
         new_lr = (lower + lr) / 2
-        larger = distance_function((inputs - batch_view(new_lr) * grad).clamp(0, 1)) > target_distance
+        larger = distance_function((inputs - batch_view(new_lr) * grad).clamp_(min=0, max=1)) > target_distance
         lower, lr = torch.where(larger, lower, new_lr), torch.where(larger, new_lr, lr)
 
     return (lr + lower) / 2
@@ -196,7 +196,7 @@ def alma(model: nn.Module,
 
         if i:
             new_μ = grad(penalty(dlr, ρ, μ).sum(), dlr, only_inputs=True)[0]
-            μ.mul_(α).add_(new_μ, alpha=1 - α).clamp_(1e-6, 1e12)
+            μ.mul_(α).add_(new_μ, alpha=1 - α).clamp_(min=1e-6, max=1e12)
 
         is_adv = dlr < 0
         is_smaller = dist < best_dist
@@ -218,13 +218,13 @@ def alma(model: nn.Module,
             δ_grad = torch.where(batch_view(grad_norm <= 1e-6), randn_grad, δ_grad)
             lr = init_lr_finder(inputs, δ_grad, dist_func, target_distance=init_lr_distance)
 
-        exp_decay = lr_reduction ** ((i - step_found).clamp_min_(0) / (num_steps - step_found))
+        exp_decay = lr_reduction ** ((i - step_found).clamp_(min=0) / (num_steps - step_found))
         step_lr = lr * exp_decay
         square_avg.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
         momentum_buffer.mul_(momentum).addcdiv_(δ_grad, square_avg.sqrt().add_(1e-8))
         δ.data.sub_(batch_view(step_lr) * momentum_buffer)
 
-        δ.data.add_(inputs).clamp_(0, 1)
+        δ.data.add_(inputs).clamp_(min=0, max=1)
         if levels is not None:
             δ.data.mul_(levels - 1).round_().div_(levels - 1)
         δ.data.sub_(inputs)

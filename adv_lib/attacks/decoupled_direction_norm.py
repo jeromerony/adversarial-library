@@ -104,7 +104,7 @@ def ddn(model: nn.Module,
         ε = torch.minimum(ε, worst_norm)
 
         δ.data.mul_(batch_view(ε / δ.data.flatten(1).norm(p=2, dim=1)))
-        δ.data.add_(inputs).clamp_(0, 1)
+        δ.data.add_(inputs).clamp_(min=0, max=1)
         if levels is not None:
             δ.data.mul_(levels - 1).round_().div_(levels - 1)
         δ.data.sub_(inputs)

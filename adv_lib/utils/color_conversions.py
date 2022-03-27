@@ -47,7 +47,7 @@ _delta = 6 / 29
 
 def cielab_func(input: Tensor) -> Tensor:
     # torch.where produces NaNs in backward if one of the choice produces NaNs or infs in backward (here .pow(1/3))
-    return torch.where(input > _delta ** 3, input.clamp_min(_delta ** 3).pow(1 / 3), input / (3 * _delta ** 2) + 4 / 29)
+    return torch.where(input > _delta ** 3, input.clamp(min=_delta ** 3).pow(1 / 3), input / (3 * _delta ** 2) + 4 / 29)
 
 
 def cielab_inverse_func(input: Tensor) -> Tensor:

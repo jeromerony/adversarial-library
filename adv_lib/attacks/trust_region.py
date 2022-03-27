@@ -40,7 +40,7 @@ def select_index(model: nn.Module,
     if worst_case:
         index = pers.argmax(dim=1, keepdim=True)
     else:
-        index = pers.clamp_min_(0).argmin(dim=1, keepdim=True)
+        index = pers.clamp_(min=0).argmin(dim=1, keepdim=True)
 
     return indices.gather(1, index + 1).squeeze(1)
 
@@ -61,16 +61,16 @@ def _step(model: nn.Module,
 
     grad_inputs = grad(logit_diff.sum(), inputs, only_inputs=True)[0].flatten(1)
     inputs.detach_()
-    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_min_(1e-6))
+    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_(min=1e-6))
 
     if p == float('inf'):
         grad_inputs.sign_()
     elif p == 2:
-        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min_(1e-6))
+        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_(min=1e-6))
 
     per = torch.min(per, eps)
     adv_inputs = grad_inputs.mul_(per.add_(1e-4).mul_(1.02).unsqueeze(1)).view_as(inputs).add_(inputs)
-    adv_inputs.clamp_(0, 1)
+    adv_inputs.clamp_(min=0, max=1)
     return adv_inputs, eps
 
 
@@ -92,17 +92,17 @@ def _adaptive_step(model: nn.Module,
 
     grad_inputs = grad(logit_diff.sum(), inputs, only_inputs=True)[0].flatten(1)
     inputs.detach_()
-    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_min_(1e-6))
+    per = logit_diff.detach().neg_().div_(grad_inputs.norm(p=dual, dim=1).clamp_(min=1e-6))
 
     if p == float('inf'):
         grad_inputs.sign_()
     elif p == 2:
-        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_min_(1e-6))
+        grad_inputs.div_(grad_inputs.norm(p=2, dim=1, keepdim=True).clamp_(min=1e-6))
 
     new_eps = torch.min(per, eps)
 
     adv_inputs = grad_inputs.mul_(new_eps.add(1e-4).mul_(1.02).unsqueeze_(1)).view_as(inputs).add_(inputs)
-    adv_inputs.clamp_(0, 1)
+    adv_inputs.clamp_(min=0, max=1)
 
     adv_logits = model(adv_inputs)
     class_adv_logits = adv_logits.gather(1, labels.unsqueeze(1)).squeeze(1)
@@ -112,9 +112,9 @@ def _adaptive_step(model: nn.Module,
     decrease = obj_diff < 0.5
     new_eps = torch.where(increase, new_eps * 1.2, torch.where(decrease, new_eps / 1.2, new_eps))
     if p == 2:
-        new_eps.clamp_(0.0005, 0.05)
+        new_eps.clamp_(min=0.0005, max=0.05)
     elif p == float('inf'):
-        new_eps.clamp_(0.0001, 0.01)
+        new_eps.clamp_(min=0.0001, max=0.01)
 
     return adv_inputs, new_eps
 

@@ -121,7 +121,7 @@ def carlini_wagner_l2(model: nn.Module,
             o_best_adv = torch.where(batch_view(o_is_both), adv_inputs.detach(), o_best_adv)
 
             logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
-            loss = l2_squared + c * (logit_dists + confidence).clamp_min_(0)
+            loss = l2_squared + c * (logit_dists + confidence).clamp_(min=0)
 
             # check if we should abort search if we're getting nowhere.
             if abort_early and i % (max_iterations // 10) == 0:

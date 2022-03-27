@@ -121,7 +121,7 @@ def get_best_diff_logits_grads(model: nn.Module,
         other_logits = logits.gather(1, o_labels.unsqueeze(1)).squeeze(1)
         logits_diff = other_logits - class_logits
         grad_diff = grad(logits_diff.sum(), inputs, only_inputs=True, retain_graph=i + 1 != n_other_labels)[0]
-        ratio = logits_diff.abs().div_(grad_diff.flatten(1).norm(p=q, dim=1).clamp_min_(1e-12))
+        ratio = logits_diff.abs().div_(grad_diff.flatten(1).norm(p=q, dim=1).clamp_(min=1e-12))
 
         smaller_ratio = ratio < min_ratio
         min_ratio = torch.min(ratio, min_ratio)
@@ -181,7 +181,7 @@ def _fab(model: nn.Module,
         elif norm in [1, 2]:
             t = torch.randn_like(inputs)
 
-        adv_inputs = inputs + 0.5 * t * batch_view(best_norm.clamp_max(ε) / t.flatten(1).norm(p=norm, dim=1))
+        adv_inputs = inputs + 0.5 * t * batch_view(best_norm.clamp(max=ε) / t.flatten(1).norm(p=norm, dim=1))
         adv_inputs.clamp_(min=0.0, max=1.0)
 
     for i in range(n_iter):
@@ -192,11 +192,11 @@ def _fab(model: nn.Module,
         d3 = projection(torch.cat((adv_inputs.flatten(1), inputs.flatten(1)), 0), w.repeat(2, 1), b.repeat(2))
         d1, d2 = map(lambda t: t.view_as(adv_inputs), torch.chunk(d3, 2, dim=0))
 
-        a0 = batch_view(d3.flatten(1).norm(p=norm, dim=1).clamp_min_(1e-8))
+        a0 = batch_view(d3.flatten(1).norm(p=norm, dim=1).clamp_(min=1e-8))
         a1, a2 = torch.chunk(a0, 2, dim=0)
 
-        α = (a1 / (a1 + a2)).clamp(min=0, max=α_max)
-        adv_inputs = ((adv_inputs + η * d1) * (1 - α) + (inputs + d2 * η) * α).clamp(min=0, max=1)
+        α = (a1 / (a1 + a2)).clamp_(min=0, max=α_max)
+        adv_inputs = ((adv_inputs + η * d1) * (1 - α) + (inputs + d2 * η) * α).clamp_(min=0, max=1)
 
         is_adv = model(adv_inputs).argmax(1) != labels
         adv_found.logical_or_(is_adv)

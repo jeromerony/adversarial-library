@@ -134,7 +134,7 @@ def str_attack(model: nn.Module,
                 labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
 
             logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
-            loss = const * (logit_dists + confidence).clamp_min(0)
+            loss = const * (logit_dists + confidence).clamp(min=0)
             z_grad = grad(loss.sum(), inputs=z, only_inputs=True)[0]
             z.detach_()
 
@@ -151,7 +151,7 @@ def str_attack(model: nn.Module,
             groups = F.unfold(c, kernel_size=group_size, stride=stride)
             group_norms = groups.norm(dim=1, p=2, keepdim=True)
             temp = torch.where(group_norms != 0, 1 - τ / (ρ * group_norms), torch.zeros_like(group_norms))
-            temp_ = groups * temp.clamp_min(0)
+            temp_ = groups * temp.clamp(min=0)
 
             if overlap and not fix_y_step:  # match original implementation when overlapping
                 y = c
@@ -252,7 +252,7 @@ def str_attack(model: nn.Module,
                 logits = model(adv_inputs)
                 l2 = (adv_inputs.detach() - inputs).flatten(1).norm(p=2, dim=1)
                 logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
-                loss = const * (logit_dists + confidence).clamp_min(0)
+                loss = const * (logit_dists + confidence).clamp(min=0)
                 z_grad = grad(loss.sum(), inputs=δ, only_inputs=True)[0]
                 δ.detach_()
 

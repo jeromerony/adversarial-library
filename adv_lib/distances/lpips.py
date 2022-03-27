@@ -40,7 +40,7 @@ class AlexNetFeatures(nn.Module):
 def _normalize_features(x: Tensor, ε: float = 1e-12) -> Tensor:
     """Normalize by norm and sqrt of spatial size."""
     norm = torch.norm(x, dim=1, p=2, keepdim=True)
-    return x / (norm[0].numel() ** 0.5 * norm.clamp_min(ε))
+    return x / (norm[0].numel() ** 0.5 * norm.clamp(min=ε))
 
 
 def _feature_difference(features_1: Tensor, features_2: Tensor, linear_mapping: Optional[nn.Module] = None) -> Tensor:
