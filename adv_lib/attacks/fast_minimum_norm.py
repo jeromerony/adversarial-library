@@ -12,30 +12,39 @@ from adv_lib.utils.losses import difference_of_logits
 from adv_lib.utils.projections import l1_ball_euclidean_projection
 
 
-def l0_projection(δ: Tensor, ε: Tensor) -> Tensor:
-    δ_abs = δ.flatten(1).abs()
+def l0_projection_(δ: Tensor, ε: Tensor) -> Tensor:
+    """In-place l0 projection"""
+    δ = δ.flatten(1)
+    δ_abs = δ.abs()
     sorted_indices = δ_abs.argsort(dim=1, descending=True).gather(1, (ε.long().unsqueeze(1) - 1).clamp_(min=0))
     thresholds = δ_abs.gather(1, sorted_indices)
-    return torch.where((δ_abs >= thresholds).view_as(δ), δ, torch.zeros(1, device=δ.device))
+    δ.mul_(δ_abs >= thresholds)
 
 
-def l1_projection(δ: Tensor, ε: Tensor) -> Tensor:
-    return l1_ball_euclidean_projection(x=δ.flatten(1), ε=ε).view_as(δ)
+def l1_projection_(δ: Tensor, ε: Tensor) -> Tensor:
+    """In-place l1 projection"""
+    l1_ball_euclidean_projection(x=δ.flatten(1), ε=ε, inplace=True)
 
 
-def l2_projection(δ: Tensor, ε: Tensor) -> Tensor:
-    l2_norms = δ.flatten(1).norm(p=2, dim=1, keepdim=True).clamp_(min=1e-6)
-    return (δ.flatten(1) * (ε.unsqueeze(1) / l2_norms).clamp_(max=1)).view_as(δ)
+def l2_projection_(δ: Tensor, ε: Tensor) -> Tensor:
+    """In-place l2 projection"""
+    δ = δ.flatten(1)
+    l2_norms = δ.norm(p=2, dim=1, keepdim=True).clamp_(min=1e-12)
+    δ.mul_(ε.unsqueeze(1) / l2_norms).clamp_(max=1)
 
 
-def linf_projection(δ: Tensor, ε: Tensor) -> Tensor:
+def linf_projection_(δ: Tensor, ε: Tensor) -> Tensor:
+    """In-place linf projection"""
+    δ = δ.flatten(1)
     ε = ε.unsqueeze(1)
-    return torch.maximum(torch.minimum(δ.flatten(1), ε), -ε).view_as(δ)
+    torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)
 
 
 def l0_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     n_features = x0[0].numel()
-    return l0_projection(δ=x1 - x0, ε=n_features * ε)
+    δ = x1 - x0
+    l0_projection_(δ=δ, ε=n_features * ε)
+    return δ
 
 
 def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -44,7 +53,8 @@ def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     δ_abs = δ.abs()
     mask = δ_abs > threshold
     mid_points = δ_abs.sub_(threshold).copysign_(δ)
-    return torch.where(mask.view_as(x0), x0 + mid_points.view_as(x0), x0)
+    mid_points.mul_(mask)
+    return x0 + mid_points
 
 
 def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -54,7 +64,8 @@ def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
 
 def linf_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     ε = ε.unsqueeze(1)
-    return x0 + torch.maximum(torch.minimum((x1 - x0).flatten(1), ε), -ε).view_as(x0)
+    δ = (x1 - x0).flatten(1)
+    return x0 + torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ).view_as(x0)
 
 
 def fmn(model: nn.Module,
@@ -106,10 +117,10 @@ def fmn(model: nn.Module,
 
     """
     _dual_projection_mid_points = {
-        0: (None, l0_projection, l0_mid_points),
-        1: (float('inf'), l1_projection, l1_mid_points),
-        2: (2, l2_projection, l2_mid_points),
-        float('inf'): (1, linf_projection, linf_mid_points),
+        0: (None, l0_projection_, l0_mid_points),
+        1: (float('inf'), l1_projection_, l1_mid_points),
+        2: (2, l2_projection_, l2_mid_points),
+        float('inf'): (1, linf_projection_, linf_mid_points),
     }
     if inputs.min() < 0 or inputs.max() > 1: raise ValueError('Input values should be in the [0, 1] range.')
     device = inputs.device
@@ -196,8 +207,8 @@ def fmn(model: nn.Module,
         # gradient ascent step
         δ.data.add_(δ_grad, alpha=α)
 
-        # project
-        δ.data = projection(δ=δ.data, ε=ε)
+        # project in place
+        projection(δ=δ.data, ε=ε)
 
         # clamp
         δ.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
