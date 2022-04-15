@@ -60,12 +60,10 @@ def ddn(model: nn.Module,
 
     # Init trackers
     best_l2 = worst_norm.clone()
-    best_δ = torch.zeros_like(inputs)
+    best_adv = inputs.clone()
     adv_found = torch.zeros(batch_size, dtype=torch.bool, device=device)
 
     for i in range(steps):
-        α = torch.tensor(0.01 + (1 - 0.01) * (1 + math.cos(math.pi * i / steps)) / 2, device=device)
-
         l2 = δ.data.flatten(1).norm(p=2, dim=1)
         adv_inputs = inputs + δ
         logits = model(adv_inputs)
@@ -78,7 +76,7 @@ def ddn(model: nn.Module,
         is_both = is_adv & is_smaller
         adv_found.logical_or_(is_adv)
         best_l2 = torch.where(is_both, l2, best_l2)
-        best_δ = torch.where(batch_view(is_both), δ.detach(), best_δ)
+        best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
         δ_grad = grad(loss.sum(), δ, only_inputs=True)[0]
         # renorming gradient
@@ -98,6 +96,7 @@ def ddn(model: nn.Module,
             if (i + 1) % (steps // 20) == 0 or (i + 1) == steps:
                 callback.update_lines()
 
+        α = 0.01 + (1 - 0.01) * (1 + math.cos(math.pi * i / steps)) / 2
         δ.data.add_(δ_grad, alpha=α)
 
         ε = torch.where(is_adv, (1 - γ) * ε, (1 + γ) * ε)
@@ -109,4 +108,4 @@ def ddn(model: nn.Module,
             δ.data.mul_(levels - 1).round_().div_(levels - 1)
         δ.data.sub_(inputs)
 
-    return inputs + best_δ
+    return best_adv

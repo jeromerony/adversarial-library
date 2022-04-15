@@ -147,7 +147,7 @@ def fmn(model: nn.Module,
     # Init trackers
     worst_norm = torch.maximum(inputs, 1 - inputs).flatten(1).norm(p=norm, dim=1)
     best_norm = worst_norm.clone()
-    best_δ = torch.zeros_like(inputs)
+    best_adv = inputs.clone()
     adv_found = torch.zeros(batch_size, dtype=torch.bool, device=device)
 
     for i in range(steps):
@@ -173,7 +173,7 @@ def fmn(model: nn.Module,
         is_both = is_adv & is_smaller
         adv_found.logical_or_(is_adv)
         best_norm = torch.where(is_both, δ_norm, best_norm)
-        best_δ = torch.where(batch_view(is_both), δ.data, best_δ)
+        best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
         if norm == 0:
             ε = torch.where(is_adv,
@@ -202,4 +202,4 @@ def fmn(model: nn.Module,
         # clamp
         δ.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
-    return inputs + best_δ
+    return best_adv
