@@ -222,7 +222,7 @@ def alma(model: nn.Module,
         step_lr = lr * exp_decay
         square_avg.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
         momentum_buffer.mul_(momentum).addcdiv_(δ_grad, square_avg.sqrt().add_(1e-8))
-        δ.data.sub_(batch_view(step_lr) * momentum_buffer)
+        δ.data.addcmul_(momentum_buffer, batch_view(step_lr), value=-1)
 
         δ.data.add_(inputs).clamp_(min=0, max=1)
         if levels is not None:
