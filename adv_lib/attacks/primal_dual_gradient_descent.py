@@ -157,23 +157,23 @@ def pdgd(model: nn.Module,
     return best_adv
 
 
-def l0_proximal(x: Tensor, λ: Tensor) -> Tensor:
+def l0_proximal_(x: Tensor, λ: Tensor) -> Tensor:
     thresholding = x.abs().amax(dim=1, keepdim=True) >= (2 * λ).sqrt_()
-    return thresholding.float() * x
+    return x.mul_(thresholding)
 
 
 def l1_proximal(x: Tensor, λ: Tensor) -> Tensor:
     return x.abs().sub_(λ).clamp_(min=0).copysign_(x)
 
 
-def l2_proximal(x: Tensor, λ: Tensor) -> Tensor:
+def l2_proximal_(x: Tensor, λ: Tensor) -> Tensor:
     norms = x.flatten(1).norm(p=2, dim=1, keepdim=True)
-    return (x.flatten(1) * (λ.flatten(1) / norms.neg_()).add_(1).clamp_(min=0)).view_as(x)
+    return x.flatten(1).mul_((λ.flatten(1) / norms.neg_()).add_(1).clamp_(min=0)).view_as(x)
 
 
-def linf_proximal(x: Tensor, λ: Tensor) -> Tensor:
+def linf_proximal_(x: Tensor, λ: Tensor) -> Tensor:
     l1_projection = l1_ball_euclidean_projection(x=(x / λ).flatten(1), ε=1, inplace=True).view_as(x)
-    return x - l1_projection.mul_(λ)
+    return x.addcmul_(l1_projection, λ, value=-1)
 
 
 def l23_proximal(x: Tensor, λ: Tensor) -> Tensor:
@@ -262,10 +262,10 @@ def pdpgd(model: nn.Module,
         float('inf'): linf_distances,
     }
     _proximal_operator = {
-        0: l0_proximal,
+        0: l0_proximal_,
         1: l1_proximal,
-        2: l2_proximal,
-        float('inf'): linf_proximal,
+        2: l2_proximal_,
+        float('inf'): linf_proximal_,
         23: l23_proximal,
     }
     device = inputs.device
@@ -347,11 +347,11 @@ def pdpgd(model: nn.Module,
         for _ in range(proximal_steps):
             z_prev = z_curr
 
-            z_new = proximity_operator((r.detach() - z_curr).mul_(H_div).add_(z_curr), batch_view(μ))
+            z_new = proximity_operator(z_curr.addcmul(H_div, z_curr - r.detach(), value=-1), batch_view(μ))
             z_new.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
             z_curr = torch.where(batch_view(ε > ε_threshold), z_new, z_prev)
-            ε = (z_curr - z_prev).flatten(1).norm(p=2, dim=1).div_(z_curr.flatten(1).norm(p=2, dim=1))
+            ε = torch.norm((z_curr - z_prev).flatten(1), p=2, dim=1, out=ε).div_(z_curr.flatten(1).norm(p=2, dim=1))
 
             if (ε < ε_threshold).all():
                 break
