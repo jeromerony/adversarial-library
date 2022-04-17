@@ -4,7 +4,7 @@ from functools import partial
 from typing import Optional
 
 import torch
-from torch import Tensor, nn, optim
+from torch import Tensor, nn
 from torch.autograd import grad
 from torch.nn import functional as F
 
@@ -83,9 +83,12 @@ def pdgd(model: nn.Module,
         nn.init.uniform_(r, -random_init, random_init)
         r.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
-    optimizer = optim.Adam([r], lr=primal_lr)
-    lr_lambda = lambda i: primal_lr_decrease ** (i / num_steps)
-    scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
+    # Adam variables
+    exp_avg = torch.zeros_like(inputs)
+    exp_avg_sq = torch.zeros_like(inputs)
+    β_1, β_2 = 0.9, 0.999
+
+    # dual variables
     λ = torch.zeros(batch_size, 2, dtype=torch.float, device=device)
     λ[:, 1] = -math.log(dual_ratio_init)
     λ_ema = λ.softmax(dim=1)
@@ -119,10 +122,18 @@ def pdgd(model: nn.Module,
         grad_r = grad(L_r.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()
 
+        # Adam algorithm
+        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
+        bias_correction1 = 1 - β_1 ** (i + 1)
+        bias_correction2 = 1 - β_2 ** (i + 1)
+        denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(1e-8)
+        # primal step size exponential decay
+        step_size = primal_lr * primal_lr_decrease ** (i / num_steps)
         # gradient descent on primal variables
-        r.grad = grad_r
-        optimizer.step()
-        scheduler.step()
+        r.data.addcdiv_(exp_avg, denom, value=-step_size / bias_correction1)
+
+        # projection on feasible set
         r.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
         # gradient ascent on dual variables and exponential moving average
@@ -137,8 +148,7 @@ def pdgd(model: nn.Module,
                                      title=f'{attack_name} - L2 norms')
             callback.accumulate_line(['λ_1', 'λ_2'], i, [λ_ema[:, 0].mean(), λ_ema[:, 1].mean()],
                                      title=f'{attack_name} - Dual variables')
-            callback.accumulate_line(['θ_r', 'θ_λ'], i, [optimizer.param_groups[0]['lr'], θ_λ],
-                                     title=f'{attack_name} - Learning rates')
+            callback.accumulate_line(['θ_r', 'θ_λ'], i, [step_size, θ_λ], title=f'{attack_name} - Learning rates')
             callback.accumulate_line('success', i, adv_found.float().mean(), title=f'{attack_name} - Success')
 
             if (i + 1) % (num_steps // 20) == 0 or (i + 1) == num_steps:
@@ -272,9 +282,12 @@ def pdpgd(model: nn.Module,
         nn.init.uniform_(r, -random_init, random_init)
         r.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
-    optimizer = optim.Adam([r], lr=primal_lr)
-    lr_lambda = lambda i: primal_lr_decrease ** (i / num_steps)
-    scheduler = optim.lr_scheduler.LambdaLR(optimizer=optimizer, lr_lambda=lr_lambda)
+    # Adam variables
+    exp_avg = torch.zeros_like(inputs)
+    exp_avg_sq = torch.zeros_like(inputs)
+    β_1, β_2 = 0.9, 0.999
+
+    # dual variables
     λ = torch.zeros(batch_size, 2, dtype=torch.float, device=device)
     λ[:, 1] = -math.log(dual_ratio_init)
     λ_ema = λ.softmax(dim=1)
@@ -308,25 +321,29 @@ def pdpgd(model: nn.Module,
         grad_r = grad(cls_loss.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()
 
+        # Adam algorithm
+        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
+        bias_correction1 = 1 - β_1 ** (i + 1)
+        bias_correction2 = 1 - β_2 ** (i + 1)
+        denom = (exp_avg_sq.sqrt() / math.sqrt(bias_correction2)).add_(1e-8)
+        # primal step size exponential decay
+        step_size = primal_lr * primal_lr_decrease ** (i / num_steps)
         # gradient descent on primal variables
-        r.grad = grad_r
-        optimizer.step()
-        θ_r = optimizer.param_groups[0]['lr']
-        scheduler.step()
+        r.data.addcdiv_(exp_avg, denom, value=-step_size / bias_correction1)
+
+        # projection on feasible set
         r.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
         # proximal adam https://arxiv.org/abs/1910.10094
-        β_2 = optimizer.param_groups[0]['betas'][1]
-        v = optimizer.state[r]['exp_avg_sq']
-        ψ = (v / (1 - β_2 ** optimizer.state[r]['step'])).sqrt_().add_(optimizer.param_groups[0]['eps'])
-        ψ_max = ψ.flatten(1).amax(dim=1)
-        effective_lr = θ_r / ψ_max
+        ψ_max = denom.flatten(1).amax(dim=1)
+        effective_lr = step_size / ψ_max
 
         # proximal sub-iterations variables
         z_curr = r.detach()
         ε = torch.ones_like(best_dist)
         μ = (λ_ema[:, 0] / λ_ema[:, 1]).mul_(effective_lr)
-        H_div = ψ / batch_view(ψ_max)
+        H_div = denom / batch_view(ψ_max)
         for _ in range(proximal_steps):
             z_prev = z_curr
 
@@ -353,7 +370,7 @@ def pdpgd(model: nn.Module,
                                      title=f'{attack_name} - L{norm} norms')
             callback.accumulate_line(['λ_1', 'λ_2'], i, [λ_ema[:, 0].mean(), λ_ema[:, 1].mean()],
                                      title=f'{attack_name} - Dual variables')
-            callback.accumulate_line(['θ_r', 'θ_λ'], i, [θ_r, θ_λ], title=f'{attack_name} - Learning rates')
+            callback.accumulate_line(['θ_r', 'θ_λ'], i, [step_size, θ_λ], title=f'{attack_name} - Learning rates')
             callback.accumulate_line('success', i, adv_found.float().mean(), title=f'{attack_name} - Success')
 
             if (i + 1) % (num_steps // 20) == 0 or (i + 1) == num_steps:
