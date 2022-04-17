@@ -162,7 +162,7 @@ def l2_proximal(x: Tensor, λ: Tensor) -> Tensor:
 
 
 def linf_proximal(x: Tensor, λ: Tensor) -> Tensor:
-    l1_projection = l1_ball_euclidean_projection(x=(x / λ).flatten(1), ε=1).view_as(x)
+    l1_projection = l1_ball_euclidean_projection(x=(x / λ).flatten(1), ε=1, inplace=True).view_as(x)
     return x - l1_projection.mul_(λ)
 
 
