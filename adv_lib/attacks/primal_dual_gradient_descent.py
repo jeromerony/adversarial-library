@@ -149,7 +149,7 @@ def pdgd(model: nn.Module,
 
 def l0_proximal(x: Tensor, λ: Tensor) -> Tensor:
     thresholding = x.abs().amax(dim=1, keepdim=True) >= (2 * λ).sqrt_()
-    return thresholding.float().mul_(x)
+    return thresholding.float() * x
 
 
 def l1_proximal(x: Tensor, λ: Tensor) -> Tensor:
