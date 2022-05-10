@@ -117,7 +117,7 @@ def pdgd(model: nn.Module,
         best_l2 = torch.where(is_both, l2.detach(), best_l2)
         best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
-        L_r = λ_ema[:, 0] * l2 + λ_ema[:, 1] * F.softplus(m_y.clamp(min=0))
+        L_r = λ_ema[:, 0] * l2 + λ_ema[:, 1] * F.softplus(m_y)
 
         grad_r = grad(L_r.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()
@@ -316,7 +316,7 @@ def pdpgd(model: nn.Module,
         best_dist = torch.where(is_both, dist.detach(), best_dist)
         best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
-        cls_loss = F.softplus(m_y.clamp(min=0))
+        cls_loss = F.softplus(m_y)
 
         grad_r = grad(cls_loss.sum(), inputs=r, only_inputs=True)[0]
         grad_λ = m_y.detach().sign()
