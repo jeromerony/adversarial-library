@@ -5,18 +5,15 @@ from functools import partial
 from typing import Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.autograd import grad
 
 
 def select_index(model: nn.Module,
                  inputs: Tensor,
-                 c: int = 9,
                  p: float = 2,
                  worst_case: bool = False) -> Tensor:
-    """
-    Select the attack target class.
-    """
+    """Select the attack target class."""
     _duals = {2: 2, float('inf'): 1}
     dual = _duals[p]
 
@@ -28,9 +25,10 @@ def select_index(model: nn.Module,
     top_grad = grad(top_logits.sum(), inputs, only_inputs=True, retain_graph=True)[0]
     pers = []
 
-    for i in range(c):
+    num_classes = logits.size(1)
+    for i in range(num_classes):
         other_logits = logits[:, i + 1]
-        other_grad = grad(other_logits.sum(), inputs, only_inputs=True, retain_graph=i + 1 != c)[0]
+        other_grad = grad(other_logits.sum(), inputs, only_inputs=True, retain_graph=i + 1 != num_classes)[0]
         grad_dual_norm = (top_grad - other_grad).flatten(1).norm(p=dual, dim=1)
         pers.append((top_logits.detach() - other_logits.detach()).div_(grad_dual_norm))
 
@@ -126,7 +124,6 @@ def tr(model: nn.Module,
        adaptive: bool = False,
        p: float = 2,
        eps: float = 0.001,
-       c: int = 9,
        worst_case: bool = False,
        targeted: bool = False) -> Tensor:
     if targeted:
@@ -134,7 +131,7 @@ def tr(model: nn.Module,
         return inputs
 
     adv_inputs = inputs.clone()
-    target_labels = select_index(model, inputs, c=c, p=p, worst_case=worst_case)
+    target_labels = select_index(model, inputs, p=p, worst_case=worst_case)
     attack_step = partial(_adaptive_step if adaptive else _step, model=model, p=p)
 
     to_attack = torch.ones(len(inputs), dtype=torch.bool, device=inputs.device)
