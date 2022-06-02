@@ -21,7 +21,6 @@ def carlini_wagner_linf(model: nn.Module,
                         reduce_const: bool = False,
                         decrease_factor: float = 0.9,
                         abort_early: bool = True,
-                        image_constraints: Tuple[float, float] = (0, 1),
                         callback: Optional[VisdomLogger] = None) -> Tensor:
     """
     Carlini and Wagner Linf attack from https://arxiv.org/abs/1608.04644.
@@ -65,9 +64,7 @@ def carlini_wagner_linf(model: nn.Module,
     """
     device = inputs.device
     batch_size = len(inputs)
-    boxmin, boxmax = image_constraints
-    boxmul, boxplus = (boxmax - boxmin) / 2, (boxmin + boxmax) / 2
-    t_inputs = ((inputs - boxplus) / boxmul).mul_(1 - 1e-6).atanh()
+    t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
     multiplier = -1 if targeted else 1
 
     # set modifier and the parameters used in the optimization
@@ -105,7 +102,7 @@ def carlini_wagner_linf(model: nn.Module,
 
         for i in range(max_iterations):
 
-            adv_inputs = torch.tanh(t_inputs_ + modifier_) * boxmul + boxplus
+            adv_inputs = (torch.tanh(t_inputs_ + modifier_) + 1) / 2
             linf = (adv_inputs.detach() - inputs_).flatten(1).norm(p=float('inf'), dim=1)
             logits = model(adv_inputs)
 

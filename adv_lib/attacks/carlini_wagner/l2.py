@@ -20,7 +20,6 @@ def carlini_wagner_l2(model: nn.Module,
                       binary_search_steps: int = 9,
                       max_iterations: int = 10000,
                       abort_early: bool = True,
-                      image_constraints: Tuple[float, float] = (0, 1),
                       callback: Optional[VisdomLogger] = None) -> Tensor:
     """
     Carlini and Wagner L2 attack from https://arxiv.org/abs/1608.04644.
@@ -51,8 +50,6 @@ def carlini_wagner_l2(model: nn.Module,
         learning rate and will produce poor results.
     abort_early : bool
         If true, allows early aborts if gradient descent gets stuck.
-    image_constraints : Tuple[float, float]
-        Minimum and maximum pixel values.
     callback : Optional
 
     Returns
@@ -64,9 +61,7 @@ def carlini_wagner_l2(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
-    boxmin, boxmax = image_constraints
-    boxmul, boxplus = (boxmax - boxmin) / 2, (boxmin + boxmax) / 2
-    t_inputs = ((inputs - boxplus) / boxmul).mul_(1 - 1e-6).atanh()
+    t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
     multiplier = -1 if targeted else 1
 
     # set the lower and upper bounds accordingly
@@ -94,7 +89,7 @@ def carlini_wagner_l2(model: nn.Module,
         prev = float('inf')
         for i in range(max_iterations):
 
-            adv_inputs = torch.tanh(t_inputs + modifier) * boxmul + boxplus
+            adv_inputs = (torch.tanh(t_inputs + modifier) + 1) / 2
             l2_squared = (adv_inputs - inputs).flatten(1).square().sum(1)
             l2 = l2_squared.detach().sqrt()
             logits = model(adv_inputs)
