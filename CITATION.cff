@@ -18,7 +18,7 @@ authors:
     orcid: 'https://orcid.org/0000-0002-9668-8027'
 identifiers:
   - type: doi
-    value: 10.5281/zenodo.6040441
+    value: 10.5281/zenodo.5815063
 repository-code: 'https://github.com/jeromerony/adversarial-library'
 keywords:
   - machine learning
