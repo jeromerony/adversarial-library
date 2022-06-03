@@ -6,7 +6,7 @@ from setuptools import find_packages
 setup_path = os.path.abspath(os.path.dirname(__file__))
 
 setup(name='adv_lib',
-      version='0.1.1',
+      version='0.1.2',
       url='https://github.com/jeromerony/adversarial-library',
       maintainer='Jerome Rony',
       maintainer_email='jerome.rony@gmail.com',
