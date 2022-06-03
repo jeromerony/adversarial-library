@@ -2,10 +2,10 @@
 
 import warnings
 from functools import partial
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.autograd import grad
 
 from .projections import projection_l1, projection_l2, projection_linf
@@ -16,6 +16,7 @@ def fab(model: nn.Module,
         labels: Tensor,
         norm: float,
         n_iter: int = 100,
+        ε: Optional[float] = None,
         α_max: float = 0.1,
         β: float = 0.9,
         η: float = 1.05,
@@ -41,6 +42,8 @@ def fab(model: nn.Module,
         for a comparison of complexities, see https://arxiv.org/abs/2011.11857.
         TL;DR: FAB performs 2 forwards and K - 1 (i.e. number of classes - 1) backwards per step in default mode. If
         `targeted_restarts` is `True`, performs `2 * restarts` forwards and `restarts` or (K - 1) backwards per step.
+    ε : float
+        Maximum norm of the random initialization for restarts.
     α_max : float
         Maximum weight for the biased  gradient step. α = 0 corresponds to taking the projection of the `adv_inputs` on
         the decision hyperplane, while α = 1 corresponds to taking the projection of the `inputs` on the decision
@@ -76,7 +79,7 @@ def fab(model: nn.Module,
     best_adv = inputs.clone()
     best_norm = torch.full_like(labels, float('inf'), dtype=torch.float)
 
-    fab_attack = partial(_fab, model=model, norm=norm, n_iter=n_iter, α_max=α_max, β=β, η=η)
+    fab_attack = partial(_fab, model=model, norm=norm, n_iter=n_iter, ε=ε, α_max=α_max, β=β, η=η)
 
     if targeted_restarts:
         logits = model(inputs)
