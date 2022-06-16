@@ -123,6 +123,77 @@ def alma_prox(model: nn.Module,
               constraint_masking: bool = True,
               mask_decay: bool = True,
               callback: Optional[VisdomLogger] = None) -> Tensor:
+    """
+    ALMA prox attack from https://arxiv.org/abs/2206.07179
+
+    Parameters
+    ----------
+    model : nn.Module
+        Model to attack.
+    inputs : Tensor
+        Inputs to attack. Should be in [0, 1].
+    labels : Tensor
+        Labels corresponding to the inputs if untargeted, else target labels.
+    masks : Tensor
+        Binary mask indicating which pixels to attack, to account for unlabeled pixels (e.g. void in Pascal VOC)
+    targeted : bool
+        Whether to perform a targeted attack or not.
+    adv_threshold : float
+        Fraction of pixels required to consider an attack successful.
+    penalty : Callable
+        Penalty-Lagrangian function to use. A good default choice is P2 (see the original article).
+    norm : float
+        Norm to minimize in {1, 2, float('inf')}.
+    num_steps : int
+        Number of optimization steps. Corresponds to the number of forward and backward propagations.
+    lr_init : float
+        Initial learning rate.
+    lr_reduction : float
+        Reduction factor for the learning rate. The final learning rate is lr_init * lr_reduction
+    init_lr_distance : float
+        If a float is given, the initial learning rate will be calculated such that the first step results in an
+        increase of init_lr_distance of the distance to minimize. This corresponds to ε in the original article.
+    μ_init : float
+        Initial value of the penalty multiplier.
+    ρ_init : float
+        Initial value of the penalty parameter.
+    check_steps : int
+        Number of steps between checks for the improvement of the constraint. This corresponds to M in the original
+        article.
+    τ : float
+        Constraint improvement rate.
+    γ : float
+        Penalty parameter increase rate.
+    α : float
+        Weight for the exponential moving average.
+    α_rms : float
+        Smoothing constant for gradient normalization. If none is provided, defaults to α.
+    scale_min : float
+        Minimum constraint scale, corresponding to w_min in the paper.
+    scale_max : float
+        Maximum constraint scale.
+    scale_init : float
+        Initial constraint scale w^{(0)}.
+    scale_γ : float
+        Constraint scale adjustment rate.
+    logit_tolerance : float
+        Small quantity added to the difference of logits to avoid solutions where the difference of logits is 0, which
+        can results in inconsistent class prediction (using argmax) on GPU. This can also be used as a confidence
+        parameter κ as in https://arxiv.org/abs/1608.04644, however, a confidence parameter on logits is not robust to
+        scaling of the logits.
+    constraint_masking : bool
+        Discard (1 - adv_threshold) fraction of the largest constraints, which are less likely to be satisfied.
+    mask_decay : bool
+        Linearly decrease the number of discarded constraints.
+    callback : VisdomLogger
+        Callback to visualize the progress of the algorithm.
+
+    Returns
+    -------
+    best_adv : Tensor
+        Perturbed inputs (inputs + perturbation) that are adversarial and have smallest perturbation norm.
+
+    """
     attack_name = f'ALMA L{norm}'
     device = inputs.device
     batch_size = len(inputs)
