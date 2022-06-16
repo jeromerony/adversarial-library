@@ -11,12 +11,14 @@ from adv_lib.utils.visdom_logger import VisdomLogger
 
 
 def prox_l1_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
+    """Proximity operator of λ||·||_1 + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ."""
     prox = δ.flatten(1).abs().sub_(λ.unsqueeze(1)).clamp_(min=0).view_as(δ).copysign_(δ)
     prox.clamp_(min=lower, max=upper)
     return prox
 
 
 def prox_l2_square_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
+    """Proximity operator of λ||·||_2^2 + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ."""
     prox = δ.flatten(1).div(λ.unsqueeze(1).mul(2).add_(1)).view_as(δ)
     prox.clamp_(min=lower, max=upper)
     return prox
@@ -24,6 +26,10 @@ def prox_l2_square_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tenso
 
 def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, ε: float = 1e-6,
                         section: float = 1 / 3) -> Tensor:
+    """Proximity operator of λ||·||_∞ + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ.
+    The problem is solved using a ternary search with section 1/3 up to an absolute error of ε on the prox.
+    Using a section of 1 - 1/φ (with φ the golden ratio) yields the Golden-section search, which is a bit faster, but
+    less numerically stable."""
     δ_, λ_ = δ.flatten(1), λ.unsqueeze(1)
     δ_proj = δ_.clamp(min=lower.flatten(1), max=upper.flatten(1))
     right = δ_proj.abs().amax(dim=1, keepdim=True)
