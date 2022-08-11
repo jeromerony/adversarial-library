@@ -185,7 +185,7 @@ def _fab(model: nn.Module,
         elif norm in [1, 2]:
             t = torch.randn_like(inputs)
 
-        adv_inputs = t.mul_(batch_view(best_norm.clamp(max=ε) / t.flatten(1).norm(p=norm, dim=1))).div_(2).add_(inputs)
+        adv_inputs.add_(t.mul_(batch_view(best_norm.clamp(max=ε) / t.flatten(1).norm(p=norm, dim=1).mul_(2))))
         adv_inputs.clamp_(min=0.0, max=1.0)
 
     for i in range(n_iter):
