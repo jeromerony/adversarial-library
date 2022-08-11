@@ -174,8 +174,9 @@ def _fab(model: nn.Module,
     get_df_dg = partial(get_best_diff_logits_grads, model=model, labels=labels, other_labels=other_labels, q=dual_norm)
 
     adv_inputs = inputs.clone()
-    adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
-    best_norm = u if u is not None else torch.full((batch_size,), float('inf'), device=device, dtype=torch.float)
+    adv_found = logits.argmax(dim=1) != labels
+    best_norm = torch.full((batch_size,), float('inf'), device=device, dtype=torch.float) if u is None else u
+    best_norm[adv_found] = 0
     best_adv = inputs.clone()
 
     if random_start:
