@@ -181,16 +181,16 @@ def _fab(model: nn.Module,
 
     if random_start:
         if norm == float('inf'):
-            t = 2 * torch.rand_like(inputs) - 1
+            t = torch.rand_like(inputs).mul_(2).sub_(1)
         elif norm in [1, 2]:
             t = torch.randn_like(inputs)
 
-        adv_inputs = inputs + 0.5 * t * batch_view(best_norm.clamp(max=ε) / t.flatten(1).norm(p=norm, dim=1))
+        adv_inputs = t.mul_(batch_view(best_norm.clamp(max=ε) / t.flatten(1).norm(p=norm, dim=1))).div_(2).add_(inputs)
         adv_inputs.clamp_(min=0.0, max=1.0)
 
     for i in range(n_iter):
         df, dg = get_df_dg(inputs=adv_inputs)
-        b = (-df + (dg * adv_inputs).flatten(1).sum(dim=1))
+        b = (dg * adv_inputs).flatten(1).sum(dim=1).sub_(df)
         w = dg.flatten(1)
 
         d3 = projection(torch.cat((adv_inputs.flatten(1), inputs.flatten(1)), 0), w.repeat(2, 1), b.repeat(2))
@@ -199,8 +199,8 @@ def _fab(model: nn.Module,
         a0 = batch_view(d3.flatten(1).norm(p=norm, dim=1).clamp_(min=1e-8))
         a1, a2 = torch.chunk(a0, 2, dim=0)
 
-        α = (a1 / (a1 + a2)).clamp_(min=0, max=α_max)
-        adv_inputs = ((adv_inputs + η * d1) * (1 - α) + (inputs + d2 * η) * α).clamp_(min=0, max=1)
+        α = a1.div_(a2.add_(a1)).clamp_(min=0, max=α_max)
+        adv_inputs.add_(d1, alpha=η).mul_(1 - α).add_(inputs.add(d2, alpha=η).mul_(α)).clamp_(min=0, max=1)
 
         is_adv = model(adv_inputs).argmax(1) != labels
         adv_found.logical_or_(is_adv)
