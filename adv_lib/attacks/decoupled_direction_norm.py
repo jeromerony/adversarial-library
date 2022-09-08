@@ -2,7 +2,7 @@ import math
 from typing import Optional
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.autograd import grad
 from torch.nn import functional as F
 
@@ -86,17 +86,19 @@ def ddn(model: nn.Module,
         if (zero_grad := (grad_norms < 1e-12)).any():
             δ_grad[zero_grad] = torch.randn_like(δ_grad[zero_grad])
 
+        α = 0.01 + (1 - 0.01) * (1 + math.cos(math.pi * i / steps)) / 2
+
         if callback is not None:
             cosine = F.cosine_similarity(δ_grad.flatten(1), δ.data.flatten(1), dim=1).mean()
             callback.accumulate_line('ce', i, ce_loss.mean())
             callback_best = best_l2.masked_select(adv_found).mean()
             callback.accumulate_line(['ε', 'l2', 'best_l2'], i, [ε.mean(), l2.mean(), callback_best])
-            callback.accumulate_line(['cosine', 'α', 'success'], i, [cosine, α, adv_found.float().mean()])
+            callback.accumulate_line(['cosine', 'α', 'success'], i,
+                                     [cosine, torch.tensor(α, device=device), adv_found.float().mean()])
 
             if (i + 1) % (steps // 20) == 0 or (i + 1) == steps:
                 callback.update_lines()
 
-        α = 0.01 + (1 - 0.01) * (1 + math.cos(math.pi * i / steps)) / 2
         δ.data.add_(δ_grad, alpha=α)
 
         ε = torch.where(is_adv, (1 - γ) * ε, (1 + γ) * ε)
