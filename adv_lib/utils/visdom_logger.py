@@ -18,7 +18,7 @@ class ChartData:
         self.type = None
         self.x_list = []
         self.y_list = []
-        self.other_data = []
+        self.other_data = None
         self.to_plot = {}
 
 
@@ -100,8 +100,10 @@ class VisdomLogger:
     def save(self, filename):
         to_save = {}
         for (name, data) in self.windows.items():
-            to_save[name] = (torch.tensor(data.x_list, dtype=torch.float),
-                             torch.tensor(data.y_list, dtype=torch.float),
-                             torch.tensor(data.other_data, dtype=torch.float),
-                             data.type)
+            type = data.type
+            if type == ChartTypes.line:
+                to_save[name] = (type, torch.cat(data.x_list, dim=0).cpu(), torch.cat(data.y_list, dim=0).cpu())
+            elif type == ChartTypes.image:
+                to_save[name] = (type, data.other_data.cpu())
+
         torch.save(to_save, filename)
