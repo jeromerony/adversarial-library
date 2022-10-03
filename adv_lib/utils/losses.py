@@ -9,7 +9,7 @@ def difference_of_logits(logits: Tensor, labels: Tensor, labels_infhot: Optional
         labels_infhot = torch.zeros_like(logits).scatter_(1, labels.unsqueeze(1), float('inf'))
 
     class_logits = logits.gather(1, labels.unsqueeze(1)).squeeze(1)
-    other_logits = (logits - labels_infhot).max(1).values
+    other_logits = (logits - labels_infhot).amax(dim=1)
     return class_logits - other_logits
 
 

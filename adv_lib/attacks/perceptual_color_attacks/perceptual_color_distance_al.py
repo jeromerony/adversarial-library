@@ -81,7 +81,7 @@ def perc_al(model: nn.Module,
     if (targeted == False) and confidence != 0:
         logits = model(images)
         real = logits.gather(1, labels.unsqueeze(1)).squeeze(1)
-        other = (logits - labels_infhot).max(1).values
+        other = (logits - labels_infhot).amax(dim=1)
         mask_isadv = (real - other) <= -40
     elif confidence == 0:
         if targeted:
@@ -113,7 +113,7 @@ def perc_al(model: nn.Module,
         if (targeted == False) and confidence != 0:
             logits = model(X_adv_round)
             real = logits.gather(1, labels.unsqueeze(1)).squeeze(1)
-            other = (logits - labels_infhot).max(1).values
+            other = (logits - labels_infhot).amax(dim=1)
             mask_isadv = (real - other) <= -40
         elif confidence == 0:
             if targeted:

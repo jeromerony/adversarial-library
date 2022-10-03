@@ -182,7 +182,7 @@ def compute_attack_metrics(model: nn.Module,
     prob_adv = probs_adv.gather(1, labels.unsqueeze(1)).squeeze(1)
     labels_infhot = torch.zeros_like(logits_adv).scatter_(1, labels.unsqueeze(1), float('inf'))
     real = logits_adv.gather(1, labels.unsqueeze(1)).squeeze(1)
-    other = (logits_adv - labels_infhot).max(1).values
+    other = (logits_adv - labels_infhot).amax(dim=1)
     diff_vs_max_adv = (real - other)
     nll = F.cross_entropy(logits, labels, reduction='none')
     nll_adv = F.cross_entropy(logits_adv, labels, reduction='none')
