@@ -1,5 +1,6 @@
 # Adapted from https://github.com/fra31/auto-attack
 import math
+import numbers
 from functools import partial
 from typing import Tuple, Optional, Union
 
@@ -72,7 +73,7 @@ def apgd(model: nn.Module,
 
     adv_inputs = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
-    if isinstance(eps, (int, float)):
+    if isinstance(eps, numbers.Real):
         eps = torch.full_like(adv_found, eps, dtype=torch.float)
 
     if use_large_reps:
@@ -192,7 +193,7 @@ def apgd_targeted(model: nn.Module,
 
     adv_inputs = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
-    if isinstance(eps, (int, float)):
+    if isinstance(eps, numbers.Real):
         eps = torch.full_like(adv_found, eps, dtype=torch.float)
 
     if use_large_reps:

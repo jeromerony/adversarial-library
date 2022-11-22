@@ -1,3 +1,4 @@
+import numbers
 from functools import partial
 from typing import Optional, Tuple, Union
 
@@ -29,7 +30,7 @@ def pgd_linf(model: nn.Module,
     adv_inputs = inputs.clone()
     adv_found = torch.zeros(batch_size, dtype=torch.bool, device=device)
 
-    if isinstance(ε, (int, float)):
+    if isinstance(ε, numbers.Real):
         ε = torch.full_like(adv_found, ε, dtype=inputs.dtype)
 
     pgd_attack = partial(_pgd_linf, model=model, targeted=targeted, steps=steps, random_init=random_init,
