@@ -1,7 +1,30 @@
+from distutils.version import LooseVersion
 from typing import Union
 
 import torch
 from torch import Tensor
+
+use_tensors_in_clamp = False
+if LooseVersion(torch.__version__) >= LooseVersion('1.9'):
+    use_tensors_in_clamp = True
+
+
+@torch.no_grad()
+def clamp(x: Tensor, lower: Tensor, upper: Tensor, inplace: bool = False) -> Tensor:
+    """Clamp based on lower and upper Tensor bounds. Clamping method depends on torch version: clamping with tensors was
+    introduced in torch 1.9."""
+    δ_clamped = x if inplace else None
+    if use_tensors_in_clamp:
+        δ_clamped = torch.clamp(x, min=lower, max=upper, out=δ_clamped)
+    else:
+        δ_clamped = torch.maximum(x, lower, out=δ_clamped)
+        δ_clamped = torch.minimum(δ_clamped, upper, out=δ_clamped)
+    return δ_clamped
+
+
+def clamp_(x: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
+    """In-place alias for clamp."""
+    return clamp(x=x, lower=lower, upper=upper, inplace=True)
 
 
 def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
