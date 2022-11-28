@@ -127,7 +127,7 @@ def fmn(model: nn.Module,
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     dual, projection, mid_point = _dual_projection_mid_points[norm]
-    α_final = α_final or α_init / 100
+    α_final = α_init / 100 if α_final is None else α_final
     multiplier = 1 if targeted else -1
 
     # If starting_points is provided, search for the boundary

@@ -207,7 +207,7 @@ def apgd_targeted(model: nn.Module,
 
     #  determine the number of classes based on the size of the model's output
     most_likely_classes = model(inputs).argsort(dim=1, descending=True)[:, 1:]
-    num_classes_to_attack = num_targets or most_likely_classes.size(1)
+    num_classes_to_attack = most_likely_classes.size(1) if num_targets is None else num_targets
 
     for i in range(num_classes_to_attack):
         targets = most_likely_classes[:, i]

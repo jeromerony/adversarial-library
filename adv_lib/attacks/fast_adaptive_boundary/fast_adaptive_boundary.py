@@ -157,7 +157,7 @@ def _fab(model: nn.Module,
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(-1, *[1] * (inputs.ndim - 1))
     projection, dual_norm, default_ε = _projection_dual_default_ε[norm]
-    ε = ε or default_ε
+    ε = default_ε if ε is None else ε
 
     logits = model(inputs)
     if targets is not None:

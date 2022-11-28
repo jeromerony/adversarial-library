@@ -54,7 +54,7 @@ def fga(model: nn.Module,
     best_adv = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
 
-    max_iter = max_iter or inputs[0].numel()
+    max_iter = inputs[0].numel() if max_iter is None else max_iter
     for i in range(max_iter):
         Γ = adv_inputs == inputs
         Γ_empty = ~Γ.flatten(1).any(1)
@@ -169,7 +169,7 @@ def vfga(model: nn.Module,
     best_adv = inputs.clone()
     adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
 
-    max_iter = max_iter or inputs[0].numel()
+    max_iter = inputs[0].numel() if max_iter is None else max_iter
     for i in range(max_iter):
         Γ = adv_inputs == inputs
         Γ_empty = ~Γ.flatten(1).any(1)

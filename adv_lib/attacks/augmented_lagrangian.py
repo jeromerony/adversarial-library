@@ -156,7 +156,7 @@ def alma(model: nn.Module,
     square_avg = torch.ones_like(inputs)
     momentum_buffer = torch.zeros_like(inputs)
     lr = torch.full((batch_size,), lr_init, device=device, dtype=torch.float)
-    α_rms, momentum = α_rms or α, momentum or α
+    α_rms, momentum = α if α_rms is None else α_rms, α if momentum is None else momentum
 
     # Init rho and mu
     μ = torch.full((batch_size,), μ_init, device=device, dtype=torch.float)

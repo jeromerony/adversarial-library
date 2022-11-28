@@ -206,7 +206,7 @@ def pdpgd(model: nn.Module,
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     multiplier = -1 if targeted else 1
     distance = _distance[norm]
-    proximity_operator = _proximal_operator[proximal_operator or norm]
+    proximity_operator = _proximal_operator[norm if proximal_operator is None else proximal_operator]
     log_min_dual_ratio = math.log(dual_min_ratio)
 
     # Setup variables
