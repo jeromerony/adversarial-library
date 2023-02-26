@@ -377,7 +377,7 @@ def _apgd(model: nn.Module,
         x_adv = inputs + t * batch_view(eps / t.flatten(1).norm(p=float('inf'), dim=1))
     elif norm == 2:
         t = torch.randn_like(inputs)
-        x_adv = inputs + t * batch_view(eps / t.flatten(1).norm(p=2, dim=1) + 1e-12)
+        x_adv = inputs + t * batch_view(eps / t.flatten(1).norm(p=2, dim=1))
     elif norm == 1:
         t = torch.randn_like(inputs)
         delta = l1_projection(inputs, t, eps)
