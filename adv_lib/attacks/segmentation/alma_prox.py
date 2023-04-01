@@ -10,29 +10,16 @@ from adv_lib.utils.losses import difference_of_logits_ratio
 from adv_lib.utils.visdom_logger import VisdomLogger
 
 
-def prox_l1_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
-    """Proximity operator of λ||·||_1 + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ."""
-    prox = δ.flatten(1).abs().sub_(λ.unsqueeze(1)).clamp_(min=0).view_as(δ).copysign_(δ)
-    prox.clamp_(min=lower, max=upper)
-    return prox
-
-
-def prox_l2_square_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
-    """Proximity operator of λ||·||_2^2 + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ."""
-    prox = δ.flatten(1).div(λ.unsqueeze(1).mul(2).add_(1)).view_as(δ)
-    prox.clamp_(min=lower, max=upper)
-    return prox
-
-
-def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, ε: float = 1e-6,
-                        section: float = 1 / 3) -> Tensor:
-    """Proximity operator of λ||·||_∞ + \iota_Λ. The lower and upper tensors correspond to the bounds of Λ.
-    The problem is solved using a ternary search with section 1/3 up to an absolute error of ε on the prox.
-    Using a section of 1 - 1/φ (with φ the golden ratio) yields the Golden-section search, which is a bit faster, but
-    less numerically stable."""
-    δ_, λ_ = δ.flatten(1), λ.unsqueeze(1)
+def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, H: Optional[Tensor] = None,
+                        ε: float = 1e-6, section: float = 1 / 3) -> Tensor:
+    """Proximity operator of λ||·||_∞ + \iota_Λ in the diagonal metric H. The lower and upper tensors correspond to
+    the bounds of Λ. The problem is solved using a ternary search with section 1/3 up to an absolute error of ε on the
+    prox. Using a section of 1 - 1/φ (with φ the golden ratio) yields the Golden-section search, which is a bit faster,
+    but less numerically stable."""
+    δ_, λ_ = δ.flatten(1), 2 * λ.unsqueeze(1)
+    H_ = H.flatten(1) if H is not None else None
     δ_proj = δ_.clamp(min=lower.flatten(1), max=upper.flatten(1))
-    right = δ_proj.abs().amax(dim=1, keepdim=True)
+    right = δ_proj.norm(p=float('inf'), dim=1, keepdim=True)
     left = torch.zeros_like(right)
     steps = (ε / right.max()).log_().mul_(math.log(math.e, 1 - section)).ceil_().long()
     prox, Δ, left_third, right_third, f_left, f_right, cond = (None,) * 7
@@ -42,47 +29,23 @@ def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, ε
         left_third = torch.add(left, Δ, out=left_third)
         right_third = torch.sub(right, Δ, out=right_third)
 
-        prox = torch.clamp(δ_proj, min=-left_third, max=left_third, out=prox)
-        f_left = torch.sum(prox.sub_(δ_).square_(), dim=1, keepdim=True, out=f_left)
-        f_left.div_(2).addcmul_(left_third, λ_)
+        prox = torch.clamp(δ_proj, min=-left_third, max=left_third, out=prox).sub_(δ_).square_()
+        if H_ is not None:
+            prox.mul_(H_)
+        f_left = torch.sum(prox, dim=1, keepdim=True, out=f_left)
+        f_left.addcmul_(left_third, λ_)
 
-        prox = torch.clamp(δ_proj, min=-right_third, max=right_third, out=prox)
-        f_right = torch.sum(prox.sub_(δ_).square_(), dim=1, keepdim=True, out=f_right)
-        f_right.div_(2).addcmul_(right_third, λ_)
+        prox = torch.clamp(δ_proj, min=-right_third, max=right_third, out=prox).sub_(δ_).square_()
+        if H_ is not None:
+            prox.mul_(H_)
+        f_right = torch.sum(prox, dim=1, keepdim=True, out=f_right)
+        f_right.addcmul_(right_third, λ_)
 
         cond = torch.ge(f_left, f_right, out=cond)
         left = torch.where(cond, left_third, left)
         right = torch.where(cond, right, right_third)
     left.add_(right).div_(2)
-    prox = torch.clamp(δ_proj, min=-left, max=left, out=prox).view_as(δ)
-    return prox
-
-
-def init_lr_finder(grad: Tensor, norm: float, target_distance: float, lower: Tensor, upper: Tensor) -> Tensor:
-    batch_size = len(grad)
-    batch_view = lambda tensor: tensor.view(batch_size, *[1] * (grad.ndim - 1))
-    lr = torch.ones(batch_size, device=grad.device)
-    low = torch.zeros_like(lr)
-
-    found_upper = grad.neg().clamp_(lower, upper).flatten(1).norm(p=norm, dim=1) > target_distance
-    while (~found_upper).any():
-        low = torch.where(found_upper, low, lr)
-        lr = torch.where(found_upper, lr, lr * 2)
-        found_upper = grad.mul(-batch_view(lr)).clamp_(lower, upper).flatten(1).norm(p=norm, dim=1) > target_distance
-
-    for i in range(20):
-        new_lr = (low + lr) / 2
-        larger = grad.mul(-batch_view(new_lr)).clamp_(lower, upper).flatten(1).norm(p=norm, dim=1) > target_distance
-        low, lr = torch.where(larger, low, new_lr), torch.where(larger, new_lr, lr)
-
-    return (lr + low) / 2
-
-
-_prox = {
-    1: prox_l1_indicator,
-    2: prox_l2_square_indicator,
-    float('inf'): partial(prox_linf_indicator, ε=1e-5),
-}
+    return δ_proj.clamp_(min=-left, max=left).view_as(δ)
 
 
 class P(Function):
@@ -109,28 +72,26 @@ def alma_prox(model: nn.Module,
               targeted: bool = False,
               adv_threshold: float = 0.99,
               penalty: Callable = P.apply,
-              norm: float = float('inf'),
               num_steps: int = 500,
-              lr_init: float = 0.1,
+              lr_init: float = 0.001,
               lr_reduction: float = 0.1,
-              init_lr_distance: Optional[float] = None,
-              μ_init: float = 1e-4,
-              ρ_init: float = 1,
+              μ_init: float = 1,
+              ρ_init: float = 0.01,
               check_steps: int = 10,
               τ: float = 0.95,
               γ: float = 2,
               α: float = 0.8,
               α_rms: float = None,
-              scale_min: float = 0.05,
+              scale_min: float = 0.1,
               scale_max: float = 1,
-              scale_init: Optional[float] = None,
+              scale_init: float = 1,
               scale_γ: float = 0.02,
               logit_tolerance: float = 1e-4,
               constraint_masking: bool = True,
               mask_decay: bool = True,
               callback: Optional[VisdomLogger] = None) -> Tensor:
     """
-    ALMA prox attack from https://arxiv.org/abs/2206.07179
+    ALMA prox attack from https://arxiv.org/abs/2206.07179 to find $\ell_\infty$ perturbations.
 
     Parameters
     ----------
@@ -148,17 +109,12 @@ def alma_prox(model: nn.Module,
         Fraction of pixels required to consider an attack successful.
     penalty : Callable
         Penalty-Lagrangian function to use. A good default choice is P2 (see the original article).
-    norm : float
-        Norm to minimize in {1, 2, float('inf')}.
     num_steps : int
         Number of optimization steps. Corresponds to the number of forward and backward propagations.
     lr_init : float
         Initial learning rate.
     lr_reduction : float
         Reduction factor for the learning rate. The final learning rate is lr_init * lr_reduction
-    init_lr_distance : float
-        If a float is given, the initial learning rate will be calculated such that the first step results in an
-        increase of init_lr_distance of the distance to minimize. This corresponds to ε in the original article.
     μ_init : float
         Initial value of the penalty multiplier.
     ρ_init : float
@@ -200,7 +156,7 @@ def alma_prox(model: nn.Module,
         Perturbed inputs (inputs + perturbation) that are adversarial and have smallest perturbation norm.
 
     """
-    attack_name = f'ALMA L{norm}'
+    attack_name = f'ALMA prox'
     device = inputs.device
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
@@ -210,14 +166,13 @@ def alma_prox(model: nn.Module,
     # Setup variables
     δ = torch.zeros_like(inputs, requires_grad=True)
     lr = torch.full((batch_size,), lr_init, device=device, dtype=torch.float)
-    s = torch.zeros_like(lr)
+    s = torch.zeros_like(δ)
     lower, upper = -inputs, 1 - inputs
-
-    prox_func = partial(_prox[float(norm)], lower=lower, upper=upper)
+    prox_func = partial(prox_linf_indicator, lower=lower, upper=upper)
 
     # Init constraint parameters
-    μ = torch.full_like(labels, μ_init, device=device, dtype=torch.float)
-    ρ = torch.full_like(labels, ρ_init, device=device, dtype=torch.float)
+    μ = torch.full_like(labels, μ_init, device=device, dtype=torch.double)
+    ρ = torch.full_like(labels, ρ_init, device=device, dtype=torch.double)
     if scale_init is None:
         scale_init = math.exp(math.log(scale_min * scale_max) / 2)
     w = torch.full_like(lr, scale_init)  # constraint scale
@@ -234,7 +189,7 @@ def alma_prox(model: nn.Module,
 
         adv_inputs = inputs + δ
         logits = model(adv_inputs)
-        dist = δ.data.flatten(1).norm(p=norm, dim=1)
+        dist = δ.data.flatten(1).norm(p=float('inf'), dim=1)
 
         if i == 0:
             # initialize variables based on model's output
@@ -296,41 +251,32 @@ def alma_prox(model: nn.Module,
         loss = penalty(constraints, ρ, μ).mul(constraint_mask).flatten(1).sum(dim=1)
         δ_grad = grad(loss.sum(), δ, only_inputs=True)[0]
 
-        # decay and estimate step size
-        grad_norm = δ_grad.flatten(1).norm(p=2, dim=1)
-        if i == 0 and init_lr_distance is not None:
-            if (zero_grad := (grad_norm <= 1e-8)).any():
-                δ_grad[zero_grad] = torch.randn_like(δ_grad[zero_grad]).renorm_(dim=0, p=2, maxnorm=1)
-                grad_norm[zero_grad] = 1
-            lr = init_lr_finder(δ_grad / batch_view(grad_norm), norm=norm,
-                                target_distance=init_lr_distance, lower=lower, upper=upper)
-
         if lr_reduction != 1:
             tangent = lr_reduction / (1 - lr_reduction) * (num_steps - step_found).clamp_(min=1)
             decay = tangent / ((i - step_found).clamp_(min=0) + tangent)
-            step_lr = lr * decay.clamp_(min=lr_reduction)
+            λ = lr * decay
         else:
-            step_lr = lr
+            λ = lr
 
-        s.mul_(α_rms).add_(δ_grad.flatten(1).square().sum(dim=1), alpha=1 - α_rms)
-        λ = step_lr / (s.div(1 - α_rms ** (i + 1)).sqrt_() + 1e-6)
+        s.mul_(α_rms).addcmul_(δ_grad, δ_grad, value=1 - α_rms)
+        H = s.div(1 - α_rms ** (i + 1)).sqrt_().clamp_(min=1e-8)
 
         # gradient step
-        δ.data.addcmul_(δ_grad, batch_view(λ), value=-1)
+        δ.data.addcmul_(δ_grad, batch_view(λ) / H, value=-1)
 
         # proximal step
-        δ.data = prox_func(δ=δ.data, λ=λ)
+        δ.data = prox_func(δ=δ.data, λ=λ, H=H)
 
-        if callback:
+        if isinstance(callback, VisdomLogger):
             callback.accumulate_line('const', i, constraints[masks].mean(), title=attack_name + ' - Constraints')
             callback.accumulate_line(['μ', 'ρ', 'scale'], i, [μ[masks].mean(), ρ[masks].mean(), w.mean()],
                                      title=attack_name + ' - Penalty parameters', ytype='log')
-            callback.accumulate_line(['||g||₂', '√s'], i, [grad_norm.mean(), s.sqrt().mean()],
-                                     title=attack_name + ' - Grad norm', ytype='log')
+            callback.accumulate_line(['mean(H)', 'min(H)', 'max(H)'], i, [H.mean(), H.min(), H.max()],
+                                     title=attack_name + ' - Metric', ytype='log')
             callback.accumulate_line('λ', i, λ.mean(), title=attack_name + ' - Step size', ytype='log')
             callback.accumulate_line(['adv%', 'best_adv%'], i, [adv_percent.mean(), best_adv_percent.mean()],
                                      title=attack_name + ' - APSR')
-            callback.accumulate_line([f'ℓ{norm}', f'best ℓ{norm}'], i,
+            callback.accumulate_line([f'ℓ∞', f'best ℓ∞'], i,
                                      [dist.mean(), best_dist.mean()], title=attack_name + ' - Norms')
 
             if (i + 1) % (num_steps // 20) == 0 or (i + 1) == num_steps:
