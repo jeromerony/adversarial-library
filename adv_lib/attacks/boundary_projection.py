@@ -140,7 +140,6 @@ def bp(model: nn.Module,
         # compose cases
         y_new = torch.where(batch_view(adv_found), torch.where(batch_view(is_adv), y_out, y_in), y_stage_1)
         # update optimization variable and constrain to box
-        δ.data = y_new
-        δ.data.clamp_(min=0, max=1).sub_(inputs)
+        δ.data = y_new.clamp_(min=0, max=1).sub_(inputs)
 
     return best_adv
