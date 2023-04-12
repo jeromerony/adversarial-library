@@ -109,7 +109,7 @@ def bp(model: nn.Module,
         y_stage_1 = adv_inputs.data - (α * γ) * δ_grad_normalized
 
         # stage 2
-        r = (δ.data / (batch_view(l2.clamp(min=1e-6))) * δ_grad_normalized).flatten(1).sum(dim=1)
+        r = (δ.data * δ_grad_normalized).flatten(1).sum(dim=1)
 
         # case OUT
         ε = γ * l2
