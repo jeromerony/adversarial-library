@@ -106,12 +106,12 @@ def fga(model: nn.Module,
             # finding the index of max probability for target class. If a sample is adv, it will be prioritized. If
             # several are adversarial, taking the index of the adv sample with max probability.
             adv_found_ = new_preds == labels_.unsqueeze(1)
-            best_sample_index = (new_label_probs + adv_found_.float() * new_label_probs.max()).argmax(dim=1)
+            best_sample_index = (new_label_probs + adv_found_.float()).argmax(dim=1)
         else:
             # finding the index of min probability for original class. If a sample is adv, it will be prioritized. If
             # several are adversarial, taking the index of the adv sample with min probability.
             adv_found_ = new_preds != labels_.unsqueeze(1)
-            best_sample_index = (new_label_probs - adv_found_.float() * new_label_probs.min()).argmin(dim=1)
+            best_sample_index = (new_label_probs - adv_found_.float()).argmin(dim=1)
 
         # update trackers
         adv_inputs[to_attack] = input_view(perturbed_inputs[range(batch_size_), best_sample_index])
@@ -220,12 +220,12 @@ def vfga(model: nn.Module,
             # finding the index of max probability for target class. If a sample is adv, it will be prioritized. If
             # several are adversarial, taking the index of the adv sample with max probability.
             adv_found_ = new_preds == labels_.unsqueeze(1)
-            best_sample_index = (new_label_probs + adv_found_.float() * new_label_probs.max()).argmax(dim=1)
+            best_sample_index = (new_label_probs + adv_found_.float()).argmax(dim=1)
         else:
             # finding the index of min probability for original class. If a sample is adv, it will be prioritized. If
             # several are adversarial, taking the index of the adv sample with min probability.
             adv_found_ = new_preds != labels_.unsqueeze(1)
-            best_sample_index = (new_label_probs - adv_found_.float() * new_label_probs.min()).argmin(dim=1)
+            best_sample_index = (new_label_probs.mased - adv_found_.float()).argmin(dim=1)
 
         # update trackers
         adv_inputs[to_attack] = input_view(perturbed_inputs[range(batch_size_), best_sample_index])
