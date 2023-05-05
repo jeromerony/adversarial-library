@@ -17,13 +17,13 @@ def l0_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     δ = δ.flatten(1)
     δ_abs = δ.abs()
     thresholds = δ_abs.topk(k=ε.long().max(), dim=1).values.gather(1, (ε.long().unsqueeze(1) - 1).clamp_(min=0))
-    δ.mul_(δ_abs >= thresholds)
+    δ[δ_abs < thresholds] = 0
     return δ
 
 
 def l1_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place l1 projection"""
-    l1_ball_euclidean_projection(x=δ.flatten(1), ε=ε, inplace=True)
+    δ = l1_ball_euclidean_projection(x=δ.flatten(1), ε=ε, inplace=True)
     return δ
 
 
@@ -38,14 +38,14 @@ def l2_projection_(δ: Tensor, ε: Tensor) -> Tensor:
 def linf_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place linf projection"""
     δ, ε = δ.flatten(1), ε.unsqueeze(1)
-    torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)  # Tensor.clamp with Tensor was introduced in pytorch 1.9.0
+    δ = torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)  # Tensor.clamp with Tensor was introduced in pytorch 1.9.0
     return δ
 
 
 def l0_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     n_features = x0[0].numel()
     δ = x1 - x0
-    l0_projection_(δ=δ, ε=n_features * ε)
+    δ = l0_projection_(δ=δ, ε=n_features * ε)
     return δ
 
 
@@ -53,21 +53,22 @@ def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     threshold = (1 - ε).unsqueeze(1)
     δ = (x1 - x0).flatten(1)
     δ_abs = δ.abs()
-    mask = δ_abs > threshold
+    mask = δ_abs <= threshold
     mid_points = δ_abs.sub_(threshold).copysign_(δ)
-    mid_points.mul_(mask)
-    return x0 + mid_points
+    mid_points[mask] = 0
+    return mid_points.add_(x0)
 
 
 def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     ε = ε.unsqueeze(1)
-    return x0.flatten(1).mul(1 - ε).add_(ε * x1.flatten(1)).view_as(x0)
+    return x0.flatten(1).mul(1 - ε).addcmul_(ε, x1.flatten(1)).view_as(x0)
 
 
 def linf_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     ε = ε.unsqueeze(1)
     δ = (x1 - x0).flatten(1)
-    return x0 + torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ).view_as(x0)
+    δ = torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)
+    return δ.view_as(x0).add_(x0)
 
 
 def fmn(model: nn.Module,
