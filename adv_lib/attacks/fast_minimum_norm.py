@@ -5,7 +5,7 @@ from functools import partial
 from typing import Optional
 
 import torch
-from torch import nn, Tensor
+from torch import Tensor, nn
 from torch.autograd import grad
 
 from adv_lib.utils.losses import difference_of_logits
@@ -19,11 +19,13 @@ def l0_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     sorted_indices = δ_abs.argsort(dim=1, descending=True).gather(1, (ε.long().unsqueeze(1) - 1).clamp_(min=0))
     thresholds = δ_abs.gather(1, sorted_indices)
     δ.mul_(δ_abs >= thresholds)
+    return δ
 
 
 def l1_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place l1 projection"""
     l1_ball_euclidean_projection(x=δ.flatten(1), ε=ε, inplace=True)
+    return δ
 
 
 def l2_projection_(δ: Tensor, ε: Tensor) -> Tensor:
@@ -31,13 +33,14 @@ def l2_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     δ = δ.flatten(1)
     l2_norms = δ.norm(p=2, dim=1, keepdim=True).clamp_(min=1e-12)
     δ.mul_(ε.unsqueeze(1) / l2_norms).clamp_(max=1)
+    return δ
 
 
 def linf_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place linf projection"""
-    δ = δ.flatten(1)
-    ε = ε.unsqueeze(1)
-    torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)
+    δ, ε = δ.flatten(1), ε.unsqueeze(1)
+    torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)  # Tensor.clamp with Tensor was introduced in pytorch 1.9.0
+    return δ
 
 
 def l0_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
