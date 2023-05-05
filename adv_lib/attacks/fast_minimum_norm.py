@@ -16,8 +16,7 @@ def l0_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place l0 projection"""
     δ = δ.flatten(1)
     δ_abs = δ.abs()
-    sorted_indices = δ_abs.argsort(dim=1, descending=True).gather(1, (ε.long().unsqueeze(1) - 1).clamp_(min=0))
-    thresholds = δ_abs.gather(1, sorted_indices)
+    thresholds = δ_abs.topk(k=ε.long().max(), dim=1).values.gather(1, (ε.long().unsqueeze(1) - 1).clamp_(min=0))
     δ.mul_(δ_abs >= thresholds)
     return δ
 
