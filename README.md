@@ -32,14 +32,30 @@ Alternatively, you can install (after cloning) the library in editable mode:
 
 ```pip install -e .```
 
-### Example
- For an example on how to use this library, you can look at this repo: https://github.com/jeromerony/augmented_lagrangian_adversarial_attacks
+### Usage
+Attacks are implemented as functions, so they can be called directly by providing the model, samples and labels (possibly with optional arguments):
+```python
+from adv_lib.attacks import ddn
+adv_samples = ddn(model=model, inputs=inputs, labels=labels, steps=300)
+```
+
+Classification attacks all expect the following arguments:
+- `model`: the model  that produces logits (pre-softmax activations) with inputs in $[0, 1]$
+- `inputs`: the samples to attack in $[0, 1]$
+- `labels`: either the ground-truth labels for the samples or the targets
+- `targeted`: flag indicated if the attack should be targeted or not -- defaults to `False`
+
+Additionally, many attacks have an optional `callback` argument which accepts an `adv_lib.utils.visdom_logger.VisdomLogger` to plot data to a visdom server for monitoring purposes.
+
+ For a more detailed example on how to use this library, you can look at this repo: https://github.com/jeromerony/augmented_lagrangian_adversarial_attacks
 
 ## Contents
 
 ### Attacks
 
-Currently the following attacks are implemented in the `adv_lib.attacks` module:
+#### Classification
+
+Currently the following classification attacks are implemented in the `adv_lib.attacks` module:
 
 | Name                                                                                    | Knowledge | Type    | Distance(s)                                                                   | ArXiv Link                                                                                           |
 |-----------------------------------------------------------------------------------------|-----------|---------|-------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
@@ -61,6 +77,27 @@ Currently the following attacks are implemented in the `adv_lib.attacks` module:
 _Type_ refers to the goal of the attack:
  - _Minimal_ attacks aim to find the smallest adversarial perturbation w.r.t. a given distance;
  - _Budget_ attacks aim to find an adversarial perturbation within a distance budget (and often to maximize a loss as well).
+
+#### Segmentation
+
+The library now includes segmentation attacks in the `adv_lib.attacks.segmentation` module. These require the following arguments:
+- `model`: the model  that produces logits (pre-softmax activations) with inputs in $[0, 1]$
+- `inputs`: the images to attack in $[0, 1]$. Shape: $b\times c\times h\times w$ with $b$ the batch size, $c$ the number of color channels and $h$ and $w$ the height and width of the images.
+- `labels`: either the ground-truth labels for the samples or the targets. Shape: $b\times h\times w$.
+- `masks`: binary mask indicating which pixels to attack, to account for unlabeled pixels (e.g. void in Pascal VOC). Shape: $b\times h\times w$
+- `targeted`: flag indicated if the attack should be targeted or not -- defaults to `False`
+- `adv_threshold`: fraction of the pixels to consider an attack successful -- defaults to `0.99`
+
+The following segmentation attacks are implemented:
+
+| Name                                                                                      | Knowledge | Type    | Distance(s)                                                                   | ArXiv Link                                     |
+|-------------------------------------------------------------------------------------------|-----------|---------|-------------------------------------------------------------------------------|------------------------------------------------|
+| Dense Adversary Generation (DAG)                                                          | White-box | Minimal | L2, L<sub>∞</sub>                                                             | [1703.08603](https://arxiv.org/abs/1703.08603) |
+| Adaptive Segmentation Mask Attack (ASMA)                                                  | White-box | Minimal | L2                                                                            | [1907.13124](https://arxiv.org/abs/1907.13124) |
+| _Primal-Dual Gradient Descent (PDGD)<br /> Primal-Dual Proximal Gradient Descent (PDPGD)_ | White-box | Minimal | L<sub>2</sub><br />L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub> | [2106.01538](https://arxiv.org/abs/2106.01538) |
+| ALMA prox                                                                                 | White-box | Minimal | L<sub>∞</sub>                                                                 | [2206.07179](https://arxiv.org/abs/2206.07179) |
+
+_Italic_ indicates that the attack is unofficially adapted from the classification variant.
 
 ### Distances
 
