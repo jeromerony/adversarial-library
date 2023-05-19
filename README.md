@@ -95,7 +95,7 @@ The following segmentation attacks are implemented:
 | Dense Adversary Generation (DAG)                                                          | White-box | Minimal | L2, L<sub>∞</sub>                                                             | [1703.08603](https://arxiv.org/abs/1703.08603) |
 | Adaptive Segmentation Mask Attack (ASMA)                                                  | White-box | Minimal | L2                                                                            | [1907.13124](https://arxiv.org/abs/1907.13124) |
 | _Primal-Dual Gradient Descent (PDGD)<br /> Primal-Dual Proximal Gradient Descent (PDPGD)_ | White-box | Minimal | L<sub>2</sub><br />L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub> | [2106.01538](https://arxiv.org/abs/2106.01538) |
-| ALMA prox                                                                                 | White-box | Minimal | L<sub>∞</sub>                                                                 | [2206.07179](https://arxiv.org/abs/2206.07179) |
+| **ALMA prox**                                                                             | White-box | Minimal | L<sub>∞</sub>                                                                 | [2206.07179](https://arxiv.org/abs/2206.07179) |
 
 _Italic_ indicates that the attack is unofficially adapted from the classification variant.
 
