@@ -27,7 +27,7 @@ def clamp_(x: Tensor, lower: Tensor, upper: Tensor) -> Tensor:
     return clamp(x=x, lower=lower, upper=upper, inplace=True)
 
 
-def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
+def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1, inplace: bool = False) -> Tensor:
     """
     Simplex projection based on sorting.
 
@@ -37,6 +37,8 @@ def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
         Batch of vectors to project on the simplex.
     ε : float or Tensor
         Size of the simplex, default to 1 for the probability simplex.
+    inplace : bool
+        Can optionally do the operation in-place.
 
     Returns
     -------
@@ -49,7 +51,8 @@ def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1) -> Tensor:
     cumsum = torch.cumsum(u, dim=1).sub_(ε).div_(indices + 1)
     K = (cumsum < u).long().mul_(indices).amax(dim=1, keepdim=True)
     τ = cumsum.gather(1, K)
-    return (x - τ).clamp_(min=0)
+    x = x.sub_(τ) if inplace else x - τ
+    return x.clamp_(min=0)
 
 
 def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: bool = False) -> Tensor:
@@ -90,7 +93,7 @@ def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: b
         ε_ = ε[to_project] if isinstance(ε, Tensor) else torch.tensor([ε], device=x.device)
         if not inplace:
             x = x.clone()
-        simplex_proj = simplex_projection(x_to_project.abs(), ε=ε_)
+        simplex_proj = simplex_projection(x_to_project.abs(), ε=ε_, inplace=True)
         x[to_project] = simplex_proj.copysign_(x_to_project)
         return x
     else:
