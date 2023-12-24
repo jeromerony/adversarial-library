@@ -9,7 +9,7 @@ from torch import Tensor, nn
 from torch.autograd import grad
 
 from adv_lib.utils.losses import difference_of_logits
-from adv_lib.utils.projections import l1_ball_euclidean_projection
+from adv_lib.utils.projections import clamp_, l1_ball_euclidean_projection
 
 
 def l0_projection_(δ: Tensor, ε: Tensor) -> Tensor:
@@ -38,15 +38,14 @@ def l2_projection_(δ: Tensor, ε: Tensor) -> Tensor:
 def linf_projection_(δ: Tensor, ε: Tensor) -> Tensor:
     """In-place linf projection"""
     δ, ε = δ.flatten(1), ε.unsqueeze(1)
-    δ = torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)  # Tensor.clamp with Tensor was introduced in pytorch 1.9.0
+    δ = clamp_(δ, lower=-ε, upper=ε)
     return δ
 
 
 def l0_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     n_features = x0[0].numel()
-    δ = x1 - x0
-    δ = l0_projection_(δ=δ, ε=n_features * ε)
-    return δ
+    δ = l0_projection_(δ=x1 - x0, ε=n_features * ε)
+    return δ.view_as(x0).add_(x0)
 
 
 def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -56,7 +55,7 @@ def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     mask = δ_abs <= threshold
     mid_points = δ_abs.sub_(threshold).copysign_(δ)
     mid_points[mask] = 0
-    return mid_points.add_(x0)
+    return mid_points.view_as(x0).add_(x0)
 
 
 def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -66,8 +65,7 @@ def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
 
 def linf_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
     ε = ε.unsqueeze(1)
-    δ = (x1 - x0).flatten(1)
-    δ = torch.maximum(torch.minimum(δ, ε, out=δ), -ε, out=δ)
+    δ = clamp_((x1 - x0).flatten(1), lower=-ε, upper=ε)
     return δ.view_as(x0).add_(x0)
 
 
@@ -135,7 +133,8 @@ def fmn(model: nn.Module,
 
     # If starting_points is provided, search for the boundary
     if starting_points is not None:
-        is_adv = model(starting_points).argmax(dim=1)
+        start_preds = model(starting_points).argmax(dim=1)
+        is_adv = (start_preds == labels) if targeted else (start_preds != labels)
         if not is_adv.all():
             raise ValueError('Starting points are not all adversarial.')
         lower_bound = torch.zeros(batch_size, device=device)
@@ -148,13 +147,13 @@ def fmn(model: nn.Module,
             lower_bound = torch.where(is_adv, lower_bound, ε)
             upper_bound = torch.where(is_adv, ε, upper_bound)
 
-        δ = mid_point(x0=inputs, x1=starting_points, ε=ε) - inputs
+        δ = mid_point(x0=inputs, x1=starting_points, ε=upper_bound).sub_(inputs)
     else:
         δ = torch.zeros_like(inputs)
     δ.requires_grad_(True)
 
     if norm == 0:
-        ε = torch.ones(batch_size, device=device) if starting_points is None else δ.flatten(1).norm(p=0, dim=0)
+        ε = torch.ones(batch_size, device=device) if starting_points is None else δ.flatten(1).norm(p=0, dim=1)
     else:
         ε = torch.full((batch_size,), float('inf'), device=device)
 
