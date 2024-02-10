@@ -71,6 +71,7 @@ Currently the following classification attacks are implemented in the `adv_lib.a
 | Folded Gaussian Attack (FGA)<br /> Voting Folded Gaussian Attack (VFGA)                 | White-box | Minimal | L<sub>0</sub>                                                                 | [2011.12423](https://arxiv.org/abs/2011.12423)                                                       |
 | Fast Minimum-Norm (FMN)                                                                 | White-box | Minimal | L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub>                    | [2102.12827](https://arxiv.org/abs/2102.12827)                                                       |
 | Primal-Dual Gradient Descent (PDGD)<br /> Primal-Dual Proximal Gradient Descent (PDPGD) | White-box | Minimal | L<sub>2</sub><br />L<sub>0</sub>, L<sub>1</sub>, L<sub>2</sub>, L<sub>∞</sub> | [2106.01538](https://arxiv.org/abs/2106.01538)                                                       |
+| σ-zero                                                                                  | White-box | Minimal | L<sub>0</sub>                                                                 | [2402.01879](https://arxiv.org/abs/2402.01879)                                                       |
 
 **Bold** means that this repository contains the official implementation.
 
