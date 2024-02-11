@@ -219,8 +219,7 @@ def alma_prox(model: nn.Module,
         best_adv = torch.where(batch_view(is_better_adv), adv_inputs.detach(), best_adv)
 
         # adjust constraint scale
-        w = torch.where(is_adv, w * (1 / (1 + scale_γ)), w * (1 / (1 - scale_γ)))
-        w.clamp_(min=scale_min, max=scale_max)
+        w.div_(torch.where(is_adv, 1 + scale_γ, 1 - scale_γ)).clamp_(min=scale_min, max=scale_max)
 
         dlr = multiplier * diff_func(logits)
         constraints = w.view(-1, 1, 1) * dlr
@@ -243,8 +242,9 @@ def alma_prox(model: nn.Module,
             pixel_adv_found.fill_(False)
 
         if i:
-            new_μ = grad(penalty(constraints, ρ, μ)[constraint_mask].sum(), constraints, only_inputs=True)[0]
-            μ.mul_(α).add_(new_μ, alpha=1 - α).clamp_(1e-12, 1)
+            c = constraints.to(dtype=μ.dtype)
+            new_μ = grad(penalty(c, ρ, μ)[constraint_mask].sum(), c, only_inputs=True)[0]
+            μ.lerp_(new_μ, weight=1 - α).clamp_(1e-12, 1)
 
         loss = penalty(constraints, ρ, μ).mul(constraint_mask).flatten(1).sum(dim=1)
         δ_grad = grad(loss.sum(), δ, only_inputs=True)[0]

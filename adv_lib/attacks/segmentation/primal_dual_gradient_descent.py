@@ -120,7 +120,7 @@ def pdgd(model: nn.Module,
                 constraint_inf_mask.fill_(0).masked_fill_(~constraint_mask, float('inf'))
 
         if i:
-            λ_ema.mul_(dual_ema).add_(softmax_plus_one(λ - constraint_inf_mask), alpha=1 - dual_ema)
+            λ_ema.lerp_(softmax_plus_one(λ - constraint_inf_mask), weight=1 - dual_ema)
         λ_ema_masked = λ_ema * constraint_mask
         λ_1 = 1 - λ_ema_masked.flatten(1).sum(dim=1)
 
@@ -130,7 +130,7 @@ def pdgd(model: nn.Module,
         grad_λ = m_y.detach().sign().mul_(masks)
 
         # Adam algorithm
-        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg.lerp_(grad_r, weight=1 - β_1)
         exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
         bias_correction1 = 1 - β_1 ** (i + 1)
         bias_correction2 = 1 - β_2 ** (i + 1)
@@ -283,7 +283,7 @@ def pdpgd(model: nn.Module,
                 constraint_inf_mask.fill_(0).masked_fill_(~constraint_mask, float('inf'))
 
         if i:
-            λ_ema.mul_(dual_ema).add_(softmax_plus_one(λ - constraint_inf_mask), alpha=1 - dual_ema)
+            λ_ema.lerp_(softmax_plus_one(λ - constraint_inf_mask), weight=1 - dual_ema)
         λ_ema_masked = λ_ema * constraint_mask
 
         cls_loss = F.softplus(m_y).mul(λ_ema_masked).flatten(1).sum(dim=1)
@@ -292,7 +292,7 @@ def pdpgd(model: nn.Module,
         grad_λ = m_y.detach().sign().mul_(constraint_mask)
 
         # Adam algorithm
-        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg.lerp_(grad_r, weight=1 - β_1)
         exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
         bias_correction1 = 1 - β_1 ** (i + 1)
         bias_correction2 = 1 - β_2 ** (i + 1)

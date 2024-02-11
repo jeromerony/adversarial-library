@@ -449,7 +449,7 @@ def _apgd(model: nn.Module,
                                                                                                               max=1)
 
             # momentum
-            delta = x_adv.add(x_adv_1 - x_adv, alpha=a).add_(grad2, alpha=1 - a)
+            delta = x_adv.lerp(x_adv_1, weight=a).add_(grad2, alpha=1 - a)
             delta.sub_(inputs)
             delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
             x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(min=0,

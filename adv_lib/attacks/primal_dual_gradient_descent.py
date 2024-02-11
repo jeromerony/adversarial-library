@@ -123,7 +123,7 @@ def pdgd(model: nn.Module,
         grad_λ = m_y.detach().sign()
 
         # Adam algorithm
-        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg.lerp_(grad_r, weight=1 - β_1)
         exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
         bias_correction1 = 1 - β_1 ** (i + 1)
         bias_correction2 = 1 - β_2 ** (i + 1)
@@ -139,7 +139,7 @@ def pdgd(model: nn.Module,
         # gradient ascent on dual variables and exponential moving average
         θ_λ = dual_lr * ((num_steps - 1 - i) / (num_steps - 1) * (1 - dual_lr_decrease) + dual_lr_decrease)
         λ[:, 1].add_(grad_λ, alpha=θ_λ).clamp_(min=log_min_dual_ratio, max=-log_min_dual_ratio)
-        λ_ema.mul_(dual_ema).add_(λ.softmax(dim=1), alpha=1 - dual_ema)
+        λ_ema.lerp_(λ.softmax(dim=1), weight=1 - dual_ema)
 
         if callback is not None:
             callback.accumulate_line('m_y', i, m_y.mean(), title=f'{attack_name} - Logit difference')
@@ -322,7 +322,7 @@ def pdpgd(model: nn.Module,
         grad_λ = m_y.detach().sign()
 
         # Adam algorithm
-        exp_avg.mul_(β_1).add_(grad_r, alpha=1 - β_1)
+        exp_avg.lerp_(grad_r, weight=1 - β_1)
         exp_avg_sq.mul_(β_2).addcmul_(grad_r, grad_r, value=1 - β_2)
         bias_correction1 = 1 - β_1 ** (i + 1)
         bias_correction2 = 1 - β_2 ** (i + 1)
@@ -361,7 +361,7 @@ def pdpgd(model: nn.Module,
         # gradient ascent on dual variables and exponential moving average
         θ_λ = dual_lr * ((num_steps - 1 - i) / (num_steps - 1) * (1 - dual_lr_decrease) + dual_lr_decrease)
         λ[:, 1].add_(grad_λ, alpha=θ_λ).clamp_(min=log_min_dual_ratio, max=-log_min_dual_ratio)
-        λ_ema.mul_(dual_ema).add_(λ.softmax(dim=1), alpha=1 - dual_ema)
+        λ_ema.lerp_(λ.softmax(dim=1), weight=1 - dual_ema)
 
         if callback is not None:
             callback.accumulate_line('m_y', i, m_y.mean(), title=f'{attack_name} - Logit difference')

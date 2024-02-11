@@ -196,7 +196,7 @@ def alma(model: nn.Module,
 
         if i:
             new_μ = grad(penalty(dlr, ρ, μ).sum(), dlr, only_inputs=True)[0]
-            μ.mul_(α).add_(new_μ, alpha=1 - α).clamp_(min=1e-6, max=1e12)
+            μ.lerp_(new_μ, weight=1 - α).clamp_(min=1e-6, max=1e12)
 
         is_adv = dlr < 0
         is_smaller = dist < best_dist

@@ -98,7 +98,7 @@ def sigma_zero(model: nn.Module,
         δ_grad.div_(batch_view(δ_inf_norm))
 
         # adam computations
-        exp_avg.mul_(β_1).add_(δ_grad, alpha=1 - β_1)
+        exp_avg.lerp_(δ_grad, weight=1 - β_1)
         exp_avg_sq.mul_(β_2).addcmul_(δ_grad, δ_grad, value=1 - β_2)
         bias_correction1 = 1 - β_1 ** (i + 1)
         bias_correction2 = 1 - β_2 ** (i + 1)
