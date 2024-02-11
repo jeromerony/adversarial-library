@@ -22,12 +22,10 @@ def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, H:
     right = δ_proj.norm(p=float('inf'), dim=1, keepdim=True)
     left = torch.zeros_like(right)
     steps = (ε / right.max()).log_().mul_(math.log(math.e, 1 - section)).ceil_().long()
-    prox, Δ, left_third, right_third, f_left, f_right, cond = (None,) * 7
+    prox, left_third, right_third, f_left, f_right, cond = (None,) * 6
     for _ in range(steps):
-        Δ = torch.sub(right, left, out=Δ)
-        Δ.mul_(section)
-        left_third = torch.add(left, Δ, out=left_third)
-        right_third = torch.sub(right, Δ, out=right_third)
+        left_third = torch.lerp(left, right, weight=section, out=left_third)
+        right_third = torch.lerp(left, right, weight=1 - section, out=right_third)
 
         prox = torch.clamp(δ_proj, min=-left_third, max=left_third, out=prox).sub_(δ_).square_()
         if H_ is not None:
@@ -42,9 +40,9 @@ def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, H:
         f_right.addcmul_(right_third, λ_)
 
         cond = torch.ge(f_left, f_right, out=cond)
-        left = torch.where(cond, left_third, left)
-        right = torch.where(cond, right, right_third)
-    left.add_(right).div_(2)
+        left = torch.where(cond, left_third, left, out=left)
+        right = torch.where(cond, right, right_third, out=right)
+    left.lerp_(right, weight=0.5)
     return δ_proj.clamp_(min=-left, max=left).view_as(δ)
 
 
