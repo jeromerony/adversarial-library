@@ -307,12 +307,10 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
 
     inu = (indbs < u.shape[1]).float().mul_(2).sub_(1).cumsum_(dim=1)
 
-    s1 = u.sum(dim=1).neg_()
-
+    s1 = u.sum(dim=1)
     c = l.sum(dim=1).add_(eps)
-    c5 = s1 + c < 0
-
-    s = (bs2 - bs).mul_(inu).cumsum_(dim=1).add_(s1.unsqueeze(-1))
+    c5 = c < s1
+    s = (bs2 - bs).mul_(inu).cumsum_(dim=1).sub_(s1.unsqueeze(-1))
 
     if c5.any():
         lb = torch.zeros(c5.sum(), device=device)
@@ -322,7 +320,7 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
         counter = 0
 
         while counter < nitermax:
-            counter4 = torch.floor((lb + ub) / 2)
+            counter4 = lb.lerp(ub, weight=0.5).floor()
             counter2 = counter4.long()
 
             c8 = s[c5, counter2] + c[c5] < 0
@@ -332,7 +330,7 @@ def l1_projection(x: Tensor, y: Tensor, eps: Tensor) -> Tensor:
             counter += 1
 
         lb2 = lb.long()
-        alpha = (-s[c5, lb2] - c[c5]) / inu[c5, lb2 + 1] + bs2[c5, lb2]
+        alpha = bs2[c5, lb2].addcdiv(s[c5, lb2] + c[c5], inu[c5, lb2 + 1], value=-1)
         d[c5] = -torch.min(torch.max(-u[c5], alpha.unsqueeze(-1)), -l[c5])
 
     return d.mul_(y.sign()).view(shape)
@@ -434,22 +432,22 @@ def _apgd(model: nn.Module,
         a = 0.75 if i else 1.0
 
         if norm == float('inf'):
-            x_adv_1 = x_adv + batch_view(step_size) * torch.sign(grad)
-            x_adv_1 = torch.min(torch.max(x_adv_1, lower), upper)
+            x_adv_1 = x_adv.addcmul(batch_view(step_size), torch.sign(grad))
+            torch.minimum(torch.maximum(x_adv_1, lower, out=x_adv_1), upper, out=x_adv_1)
 
             # momentum
-            x_adv_1 = x_adv + (x_adv_1 - x_adv) * a + grad2 * (1 - a)
-            x_adv_1 = torch.min(torch.max(x_adv_1, lower), upper)
+            x_adv_1.lerp_(x_adv, weight=1 - a).add_(grad2, alpha=1 - a)
+            torch.minimum(torch.maximum(x_adv_1, lower, out=x_adv_1), upper, out=x_adv_1)
 
         elif norm == 2:
-            delta = x_adv + grad.mul_(batch_view(step_size / grad.flatten(1).norm(p=2, dim=1).add_(1e-12)))
+            delta = x_adv.addcmul(grad, batch_view(step_size / grad.flatten(1).norm(p=2, dim=1).add_(1e-12)))
             delta.sub_(inputs)
             delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
             x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(min=0,
                                                                                                               max=1)
 
             # momentum
-            delta = x_adv.lerp(x_adv_1, weight=a).add_(grad2, alpha=1 - a)
+            delta = x_adv_1.lerp_(x_adv, weight=1 - a).add_(grad2, alpha=1 - a)
             delta.sub_(inputs)
             delta_norm = delta.flatten(1).norm(p=2, dim=1).add_(1e-12)
             x_adv_1 = delta.mul_(batch_view(torch.min(delta_norm, eps).div_(delta_norm))).add_(inputs).clamp_(min=0,
@@ -463,11 +461,10 @@ def _apgd(model: nn.Module,
             grad.mul_(grad_abs >= batch_view(grad_topk))
             grad_sign = grad.sign()
 
-            x_adv_1 = x_adv + grad_sign * batch_view(step_size / grad_sign.flatten(1).norm(p=1, dim=1).add_(1e-10))
-
-            x_adv_1.sub_(inputs)
-            delta_p = l1_projection(inputs, x_adv_1, eps)
-            x_adv_1.add_(inputs).add_(delta_p)
+            x_adv.addcmul_(grad_sign, batch_view(step_size / grad_sign.flatten(1).norm(p=1, dim=1).add_(1e-10)))
+            x_adv.sub_(inputs)
+            delta_p = l1_projection(inputs, x_adv, eps)
+            x_adv_1 = x_adv.add_(inputs).add_(delta_p)
 
         x_adv = x_adv_1
 
