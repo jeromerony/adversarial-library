@@ -76,11 +76,7 @@ def _pgd_linf(model: nn.Module,
 
     loss_func, multiplier = _loss_functions[loss_function.lower()]
 
-    if absolute_step_size is not None:
-        step_size = absolute_step_size
-    else:
-        step_size = ε * relative_step_size
-
+    step_size: Tensor = ε * relative_step_size if absolute_step_size is None else torch.full_like(ε, absolute_step_size)
     if targeted:
         step_size *= -1
 
@@ -101,13 +97,13 @@ def _pgd_linf(model: nn.Module,
             loss_func = partial(loss_func, labels_infhot=labels_infhot)
 
         loss = multiplier * loss_func(logits, labels)
-        δ_grad = grad(loss.sum(), δ, only_inputs=True)[0].sign_().mul_(batch_view(step_size))
+        δ_grad = grad(loss.sum(), δ, only_inputs=True)[0].sign_()
 
         is_adv = (logits.argmax(1) == labels) if targeted else (logits.argmax(1) != labels)
         best_adv = torch.where(batch_view(is_adv), adv_inputs.detach(), best_adv)
         adv_found.logical_or_(is_adv)
 
-        δ.data.add_(δ_grad)
+        δ.data.addcmul_(batch_view(step_size), δ_grad)
         clamp_(δ, lower=lower, upper=upper)
 
     return adv_found, best_adv
