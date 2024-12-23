@@ -1,8 +1,6 @@
 import warnings
-from typing import Optional
 
 import torch
-from adv_lib.utils.visdom_logger import VisdomLogger
 from torch import Tensor, nn
 from torch.autograd import grad
 
@@ -13,10 +11,9 @@ def df(model: nn.Module,
        targeted: bool = False,
        steps: int = 100,
        overshoot: float = 0.02,
-       norm: float = 2,
-       callback: Optional[VisdomLogger] = None) -> Tensor:
+       norm: float = 2) -> Tensor:
     """
-    DeepFool attack from https://arxiv.org/abs/1511.04599. Properly implement sample-wise early-stopping.
+    DeepFool attack from https://arxiv.org/abs/1511.04599. Properly implement parallel sample-wise early-stopping.
 
     Parameters
     ----------
@@ -34,7 +31,6 @@ def df(model: nn.Module,
         Ratio by which to overshoot the boundary estimated from linear model.
     norm : float
         Norm to minimize in {2, float('inf')}.
-    callback : Optional
 
     Returns
     -------
@@ -77,7 +73,7 @@ def df(model: nn.Module,
             adv_out[adv_not_found] = torch.where(batch_view(is_adv), adv_inputs.detach(), adv_out[adv_not_found])
             adv_found.masked_scatter_(adv_not_found, is_adv)
             if is_adv.all():
-                return adv_out
+                break
 
             not_adv = ~is_adv
             logits, labels, other_labels = logits[not_adv], labels[not_adv], other_labels[not_adv]
