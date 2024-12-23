@@ -65,9 +65,9 @@ def df(model: nn.Module,
 
         if i == 0:
             num_classes = logits.shape[1]
-            one_hot_other_labels = labels.new_ones(batch_size, num_classes, dtype=torch.long)
-            one_hot_other_labels.scatter_(dim=1, index=labels.unsqueeze(1), value=False)
-            other_labels = one_hot_other_labels.topk(dim=1, k=num_classes - 1).indices
+            all_labels = torch.arange(num_classes, dtype=torch.long, device=device).expand(batch_size, -1)
+            all_labels = all_labels.scatter(1, labels.unsqueeze(1), num_classes + 1)
+            other_labels = all_labels.topk(dim=1, k=num_classes - 1, largest=False, sorted=True).indices
 
         pred_labels = logits.argmax(dim=1)
         is_adv = (pred_labels == labels) if targeted else (pred_labels != labels)
