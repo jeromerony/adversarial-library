@@ -11,7 +11,9 @@ def df(model: nn.Module,
        targeted: bool = False,
        steps: int = 100,
        overshoot: float = 0.02,
-       norm: float = 2) -> Tensor:
+       norm: float = 2,
+       return_unsuccessful: bool = False,
+       return_targets: bool = False) -> Tensor:
     """
     DeepFool attack from https://arxiv.org/abs/1511.04599. Properly implement parallel sample-wise early-stopping.
 
@@ -31,6 +33,10 @@ def df(model: nn.Module,
         Ratio by which to overshoot the boundary estimated from linear model.
     norm : float
         Norm to minimize in {2, float('inf')}.
+    return_unsuccessful : bool
+        Whether to return unsuccessful adversarial inputs ; used by SuperDeepFool.
+    return_unsuccessful : bool
+        Whether to return last target labels ; used by SuperDeepFool.
 
     Returns
     -------
@@ -53,6 +59,8 @@ def df(model: nn.Module,
 
     adv_out = inputs.clone()
     adv_found = torch.zeros(batch_size, dtype=torch.bool, device=device)
+    if return_targets:
+        targets = labels.clone()
 
     arange = torch.arange(batch_size, device=device)
     for i in range(steps):
@@ -99,6 +107,9 @@ def df(model: nn.Module,
         distance = f_prime.detach().abs_().div_(w_prime_norms).add_(1e-4)
         l_hat = distance.argmin(dim=1)
 
+        if return_targets:
+            targets[~adv_found] = torch.where(l_hat >= labels, l_hat + 1, l_hat)
+
         if norm == 2:
             # 1e-4 added in original implementation
             scale = distance[arange, l_hat] / w_prime_norms[arange, l_hat]
@@ -107,5 +118,11 @@ def df(model: nn.Module,
             adv_inputs.data.addcmul_(batch_view(distance[arange, l_hat]), w_prime[arange, l_hat].sign(),
                                      value=1 + overshoot)
         adv_inputs.data.clamp_(min=0, max=1)
+
+    if return_unsuccessful and not adv_found.all():
+        adv_out[~adv_found] = adv_inputs.detach()
+
+    if return_targets:
+        return adv_out, targets
 
     return adv_out
