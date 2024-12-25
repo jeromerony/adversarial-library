@@ -59,8 +59,7 @@ def l1_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
 
 
 def l2_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
-    ε = ε.unsqueeze(1)
-    return x0.flatten(1).mul(1 - ε).addcmul_(ε, x1.flatten(1)).view_as(x0)
+    return torch.lerp(x0.flatten(1), x1.flatten(1), weight=ε.unsqueeze(1)).view_as(x0)
 
 
 def linf_mid_points(x0: Tensor, x1: Tensor, ε: Tensor) -> Tensor:
@@ -194,24 +193,18 @@ def fmn(model: nn.Module,
                             torch.maximum(ε + 1, (ε * (1 + γ)).floor_()))
             ε.clamp_(min=0)
         else:
-            distance_to_boundary = loss.detach().abs() / δ_grad.flatten(1).norm(p=dual, dim=1).clamp_(min=1e-12)
+            distance_to_boundary = loss.detach().abs_().div_(δ_grad.flatten(1).norm(p=dual, dim=1).clamp_(min=1e-12))
             ε = torch.where(is_adv,
                             torch.minimum(ε * (1 - γ), best_norm),
                             torch.where(adv_found, ε * (1 + γ), δ_norm + distance_to_boundary))
 
         # clip ε
         ε = torch.minimum(ε, worst_norm)
-
-        # normalize gradient
+        # gradient ascent step with normalized gradient
         grad_l2_norms = δ_grad.flatten(1).norm(p=2, dim=1).clamp_(min=1e-12)
-        δ_grad.div_(batch_view(grad_l2_norms))
-
-        # gradient ascent step
-        δ.data.add_(δ_grad, alpha=α)
-
+        δ.data.addcdiv_(δ_grad, batch_view(grad_l2_norms), value=α)
         # project in place
         projection(δ=δ.data, ε=ε)
-
         # clamp
         δ.data.add_(inputs).clamp_(min=0, max=1).sub_(inputs)
 
