@@ -4,6 +4,8 @@ import torch
 from torch import Tensor, nn
 from torch.autograd import grad
 
+from adv_lib.utils.attack_utils import get_all_targets
+
 
 def df(model: nn.Module,
        inputs: Tensor,
@@ -68,10 +70,7 @@ def df(model: nn.Module,
         logits = model(adv_inputs)
 
         if i == 0:
-            num_classes = logits.shape[1]
-            all_labels = torch.arange(num_classes, dtype=torch.long, device=device).expand(batch_size, -1)
-            all_labels = all_labels.scatter(1, labels.unsqueeze(1), num_classes + 1)
-            other_labels = all_labels.topk(dim=1, k=num_classes - 1, largest=False, sorted=True).indices
+            other_labels = get_all_targets(labels=labels, num_classes=logits.shape[1])
 
         pred_labels = logits.argmax(dim=1)
         is_adv = (pred_labels == labels) if targeted else (pred_labels != labels)

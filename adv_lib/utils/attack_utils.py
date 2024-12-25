@@ -38,7 +38,7 @@ def generate_random_targets(labels: Tensor, num_classes: int) -> Tensor:
     return random.argmax(1)
 
 
-def get_all_targets(labels: Tensor, num_classes: int):
+def get_all_targets(labels: Tensor, num_classes: int) -> Tensor:
     """
     Generates all possible targets that are different from the original labels.
 
@@ -55,13 +55,9 @@ def get_all_targets(labels: Tensor, num_classes: int):
         Random targets for each label. shape: (len(labels), num_classes - 1).
 
     """
-    all_possible_targets = torch.zeros(len(labels), num_classes - 1, dtype=torch.long)
-    all_classes = set(range(num_classes))
-    for i in range(len(labels)):
-        this_label = labels[i].item()
-        other_labels = list(all_classes.difference({this_label}))
-        all_possible_targets[i] = torch.tensor(other_labels)
-
+    assert labels.ndim == 1
+    all_possible_targets = torch.arange(num_classes - 1, dtype=torch.long, device=labels.device)
+    all_possible_targets = all_possible_targets + (all_possible_targets >= labels.unsqueeze(1))
     return all_possible_targets
 
 

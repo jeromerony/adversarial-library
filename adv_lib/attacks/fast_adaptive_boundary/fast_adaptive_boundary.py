@@ -8,6 +8,7 @@ import torch
 from torch import Tensor, nn
 from torch.autograd import grad
 
+from adv_lib.utils.attack_utils import get_all_targets
 from .projections import projection_l1, projection_l2, projection_linf
 
 
@@ -163,13 +164,7 @@ def _fab(model: nn.Module,
     if targets is not None:
         other_labels = targets.unsqueeze(1)
     else:
-        # generate all other labels
-        n_classes = logits.size(1)
-        other_labels = torch.zeros(len(labels), n_classes - 1, dtype=torch.long, device=device)
-        all_classes = set(range(n_classes))
-        for i in range(len(labels)):
-            diff_labels = list(all_classes.difference({labels[i].item()}))
-            other_labels[i] = torch.tensor(diff_labels, device=device)
+        other_labels = get_all_targets(labels=labels, num_classes=logits.shape[1])
 
     get_df_dg = partial(get_best_diff_logits_grads, model=model, labels=labels, other_labels=other_labels, q=dual_norm)
 
