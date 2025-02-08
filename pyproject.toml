@@ -26,8 +26,9 @@ dependencies = [
     "visdom>=0.1.8",
 ]
 
-[tool.setuptools]
-packages = ["adv_lib"]
+[tool.setuptools.packages.find]
+include = ["adv_lib*"]
+namespaces = false
 
 [tool.setuptools.dynamic]
 version = { attr = "adv_lib.__version__" }
