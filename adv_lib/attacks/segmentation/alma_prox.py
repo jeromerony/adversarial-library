@@ -10,40 +10,45 @@ from adv_lib.utils.losses import difference_of_logits_ratio
 from adv_lib.utils.visdom_logger import VisdomLogger
 
 
+@torch.compile
 def prox_linf_indicator(δ: Tensor, λ: Tensor, lower: Tensor, upper: Tensor, H: Optional[Tensor] = None,
                         ε: float = 1e-6, section: float = 1 / 3) -> Tensor:
     """Proximity operator of λ||·||_∞ + \iota_Λ in the diagonal metric H. The lower and upper tensors correspond to
     the bounds of Λ. The problem is solved using a ternary search with section 1/3 up to an absolute error of ε on the
     prox. Using a section of 1 - 1/φ (with φ the golden ratio) yields the Golden-section search, which is a bit faster,
     but less numerically stable."""
-    δ_, λ_ = δ.flatten(1), 2 * λ.unsqueeze(1)
-    H_ = H.flatten(1) if H is not None else None
-    δ_proj = δ_.clamp(min=lower.flatten(1), max=upper.flatten(1))
-    right = δ_proj.norm(p=float('inf'), dim=1, keepdim=True)
+    δ_shape = δ.shape
+    δ, λ = δ.flatten(1), 2 * λ
+    H = H.flatten(1) if H is not None else None
+    δ_proj = δ.clamp(min=lower.flatten(1), max=upper.flatten(1))
+    right = δ_proj.norm(p=float('inf'), dim=1)
     left = torch.zeros_like(right)
-    steps = (ε / right.max()).log_().mul_(math.log(math.e, 1 - section)).ceil_().long()
+    steps = (ε / right.max()).log_().div_(math.log(1 - section)).ceil_().long()
     prox, left_third, right_third, f_left, f_right, cond = (None,) * 6
     for _ in range(steps):
         left_third = torch.lerp(left, right, weight=section, out=left_third)
         right_third = torch.lerp(left, right, weight=1 - section, out=right_third)
 
-        prox = torch.clamp(δ_proj, min=-left_third, max=left_third, out=prox).sub_(δ_).square_()
-        if H_ is not None:
-            prox.mul_(H_)
-        f_left = torch.sum(prox, dim=1, keepdim=True, out=f_left)
-        f_left.addcmul_(left_third, λ_)
+        prox = torch.clamp(δ_proj, min=-left_third.unsqueeze(1), max=left_third.unsqueeze(1), out=prox)
+        prox.sub_(δ).square_()
+        if H is not None:
+            prox.mul_(H)
+        f_left = torch.sum(prox, dim=1, out=f_left)
+        f_left.addcmul_(left_third, λ)
 
-        prox = torch.clamp(δ_proj, min=-right_third, max=right_third, out=prox).sub_(δ_).square_()
-        if H_ is not None:
-            prox.mul_(H_)
-        f_right = torch.sum(prox, dim=1, keepdim=True, out=f_right)
-        f_right.addcmul_(right_third, λ_)
+        prox = torch.clamp(δ_proj, min=-right_third.unsqueeze(1), max=right_third.unsqueeze(1), out=prox)
+        prox.sub_(δ).square_()
+        if H is not None:
+            prox.mul_(H)
+        f_right = torch.sum(prox, dim=1, out=f_right)
+        f_right.addcmul_(right_third, λ)
 
         cond = torch.ge(f_left, f_right, out=cond)
         left = torch.where(cond, left_third, left, out=left)
         right = torch.where(cond, right, right_third, out=right)
     left.lerp_(right, weight=0.5)
-    return δ_proj.clamp_(min=-left, max=left).view_as(δ)
+    prox = δ_proj.clamp_(min=-left.unsqueeze(1), max=left.unsqueeze(1)).view(δ_shape)
+    return prox
 
 
 class P(Function):
