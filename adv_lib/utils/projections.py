@@ -46,7 +46,7 @@ def simplex_projection(x: Tensor, ε: Union[float, Tensor] = 1, inplace: bool = 
         Batch of projected vectors on the simplex.
     """
     u = x.sort(dim=1, descending=True)[0]
-    ε = ε.unsqueeze(1) if isinstance(ε, Tensor) else torch.tensor(ε, device=x.device)
+    ε = ε.unsqueeze(1) if isinstance(ε, Tensor) else x.new_full((), ε)
     indices = torch.arange(x.size(1), device=x.device)
     cumsum = torch.cumsum(u, dim=1).sub_(ε).div_(indices + 1)
     K = (cumsum < u).long().mul_(indices).amax(dim=1, keepdim=True)
@@ -90,7 +90,7 @@ def l1_ball_euclidean_projection(x: Tensor, ε: Union[float, Tensor], inplace: b
     """
     if (to_project := x.norm(p=1, dim=1) > ε).any():
         x_to_project = x[to_project]
-        ε_ = ε[to_project] if isinstance(ε, Tensor) else torch.tensor([ε], device=x.device)
+        ε_ = ε[to_project] if isinstance(ε, Tensor) else x_to_project.new_full((1,), ε)
         if not inplace:
             x = x.clone()
         simplex_proj = simplex_projection(x_to_project.abs(), ε=ε_, inplace=True)
