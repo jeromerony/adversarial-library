@@ -10,7 +10,6 @@ type: software
 authors:
   - given-names: Jérôme
     family-names: Rony
-    affiliation: ÉTS Montréal
     orcid: 'https://orcid.org/0000-0002-6359-6142'
   - given-names: Ismail
     family-names: Ben Ayed
