@@ -1,9 +1,9 @@
 # Adapted from https://github.com/carlini/nn_robust_attacks
-
-from typing import Tuple, Optional
+import math
+from typing import Optional
 
 import torch
-from torch import nn, optim, Tensor
+from torch import nn, Tensor
 from torch.autograd import grad
 
 from adv_lib.utils.losses import difference_of_logits
@@ -20,6 +20,8 @@ def carlini_wagner_l2(model: nn.Module,
                       binary_search_steps: int = 9,
                       max_iterations: int = 10000,
                       abort_early: bool = True,
+                      β_1: float = 0.9,
+                      β_2: float = 0.999,
                       callback: Optional[VisdomLogger] = None) -> Tensor:
     """
     Carlini and Wagner L2 attack from https://arxiv.org/abs/1608.04644.
@@ -50,6 +52,8 @@ def carlini_wagner_l2(model: nn.Module,
         learning rate and will produce poor results.
     abort_early : bool
         If true, allows early aborts if gradient descent gets stuck.
+    β_1, β_2: float
+        Adam exponential averages smoothing parameters.
     callback : Optional
 
     Returns
@@ -62,25 +66,32 @@ def carlini_wagner_l2(model: nn.Module,
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
-    multiplier = -1 if targeted else 1
+    if not targeted:  # gradient descent if untargeted, else ascent
+        learning_rate *= -1
 
     # set the lower and upper bounds accordingly
     c = torch.full((batch_size,), initial_const, device=device)
     lower_bound = torch.zeros_like(c)
     upper_bound = torch.full_like(c, 1e10)
 
+    # Adam variables
+    modifier = torch.zeros_like(inputs, requires_grad=True)
+    exp_avg = torch.zeros_like(inputs)
+    exp_avg_sq = torch.zeros_like(inputs)
+
     o_best_l2 = torch.full_like(c, float('inf'))
     o_best_adv = inputs.clone()
-    o_adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
+    o_adv_found = torch.zeros_like(c, dtype=torch.bool)
 
     i_total = 0
     for outer_step in range(binary_search_steps):
 
         # setup the modifier variable and the optimizer
-        modifier = torch.zeros_like(inputs, requires_grad=True)
-        optimizer = optim.Adam([modifier], lr=learning_rate)
+        nn.init.zeros_(modifier)
+        nn.init.zeros_(exp_avg)
+        nn.init.zeros_(exp_avg_sq)
         best_l2 = torch.full_like(c, float('inf'))
-        adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
+        adv_found = torch.zeros_like(o_adv_found)
 
         # The last iteration (if we run many steps) repeat the search once.
         if (binary_search_steps >= 10) and outer_step == (binary_search_steps - 1):
@@ -115,7 +126,7 @@ def carlini_wagner_l2(model: nn.Module,
             o_adv_found.logical_or_(is_both)
             o_best_adv = torch.where(batch_view(o_is_both), adv_inputs.detach(), o_best_adv)
 
-            logit_dists = multiplier * difference_of_logits(logits, labels, labels_infhot=labels_infhot)
+            logit_dists = difference_of_logits(logits, labels, labels_infhot=labels_infhot)
             loss = l2_squared + c * (logit_dists + confidence).clamp_(min=0)
 
             # check if we should abort search if we're getting nowhere.
@@ -124,9 +135,13 @@ def carlini_wagner_l2(model: nn.Module,
                     break
                 prev = loss.detach()
 
-            optimizer.zero_grad(set_to_none=True)
-            modifier.grad = grad(loss.sum(), modifier, only_inputs=True)[0]
-            optimizer.step()
+            g = grad(loss.sum(), modifier, only_inputs=True)[0]
+            exp_avg.mul_(β_1).add_(g, alpha=1 - β_1)
+            exp_avg_sq.mul_(β_2).addcmul_(g, g, value=1 - β_2)
+            bias_correction1 = 1 - β_1 ** (i + 1)
+            bias_correction2 = 1 - β_2 ** (i + 1)
+            denom = exp_avg_sq.sqrt().div_(math.sqrt(bias_correction2)).add_(1e-8)
+            modifier.data.addcdiv_(exp_avg, denom, value=learning_rate / bias_correction1)
 
             if callback:
                 i_total += 1
