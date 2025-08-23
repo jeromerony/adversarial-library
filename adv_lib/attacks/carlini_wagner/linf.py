@@ -1,9 +1,10 @@
 # Adapted from https://github.com/carlini/nn_robust_attacks
-
-from typing import Tuple, Optional
+import math
+from typing import Optional
 
 import torch
-from torch import nn, optim, Tensor
+from torch import nn, Tensor
+from torch.autograd import grad
 
 from adv_lib.utils.losses import difference_of_logits
 from adv_lib.utils.visdom_logger import VisdomLogger
@@ -21,6 +22,8 @@ def carlini_wagner_linf(model: nn.Module,
                         reduce_const: bool = False,
                         decrease_factor: float = 0.9,
                         abort_early: bool = True,
+                        β_1: float = 0.9,
+                        β_2: float = 0.999,
                         callback: Optional[VisdomLogger] = None) -> Tensor:
     """
     Carlini and Wagner Linf attack from https://arxiv.org/abs/1608.04644.
@@ -52,8 +55,8 @@ def carlini_wagner_linf(model: nn.Module,
         Rate at which τ is decreased. Larger produces better quality results.
     abort_early : bool
         If true, allows early aborts if gradient descent gets stuck.
-    image_constraints : Tuple[float, float]
-        Minimum and maximum pixel values.
+    β_1, β_2: float
+        Adam exponential averages smoothing parameters.
     callback : Optional
 
     Returns
@@ -65,12 +68,13 @@ def carlini_wagner_linf(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
-    multiplier = -1 if targeted else 1
+    if not targeted:
+        learning_rate *= -1
 
     # set modifier and the parameters used in the optimization
     modifier = torch.zeros_like(inputs)
     c = torch.full((batch_size,), initial_const, device=device, dtype=torch.float)
-    τ = torch.ones(batch_size, device=device)
+    τ = torch.ones_like(c)
 
     o_adv_found = torch.zeros_like(c, dtype=torch.bool)
     o_best_linf = torch.ones_like(c)
@@ -89,7 +93,8 @@ def carlini_wagner_linf(model: nn.Module,
 
         # setup the optimizer
         modifier_ = modifier[to_optimize].requires_grad_(True)
-        optimizer = optim.Adam([modifier_], lr=learning_rate)
+        exp_avg = torch.zeros_like(modifier_)
+        exp_avg_sq = torch.zeros_like(modifier_)
         c_, τ_ = c[to_optimize], τ[to_optimize]
 
         adv_found = torch.zeros(len(modifier_), device=device, dtype=torch.bool)
@@ -119,7 +124,7 @@ def carlini_wagner_linf(model: nn.Module,
             best_linf = torch.where(is_both, linf, best_linf)
             best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
-            logit_dists = multiplier * difference_of_logits(logits, labels_, labels_infhot=labels_infhot)
+            logit_dists = difference_of_logits(logits, labels_, labels_infhot=labels_infhot)
             linf_loss = (adv_inputs - inputs_).abs_().sub_(batch_view(τ_)).clamp_(min=0).flatten(1).sum(1)
             loss = linf_loss + c_ * logit_dists.clamp_(min=0)
 
@@ -127,9 +132,13 @@ def carlini_wagner_linf(model: nn.Module,
             if abort_early and (loss < 0.0001 * c_).all():
                 break
 
-            optimizer.zero_grad()
-            loss.sum().backward()
-            optimizer.step()
+            g = grad(loss.sum(), modifier_, only_inputs=True)[0]
+            exp_avg.mul_(β_1).add_(g, alpha=1 - β_1)
+            exp_avg_sq.mul_(β_2).addcmul_(g, g, value=1 - β_2)
+            bias_correction1 = 1 - β_1 ** (i + 1)
+            bias_correction2 = 1 - β_2 ** (i + 1)
+            denom = exp_avg_sq.sqrt().div_(math.sqrt(bias_correction2)).add_(1e-8)
+            modifier_.data.addcdiv_(exp_avg, denom, value=learning_rate / bias_correction1)
 
             if callback:
                 callback.accumulate_line('logit_dist', total_iters, logit_dists.mean())
