@@ -67,8 +67,11 @@ def run_attack(model: nn.Module,
                attack: Callable,
                targets: Optional[Tensor] = None,
                batch_size: Optional[int] = None) -> dict:
-    device = next(model.parameters()).device
-    to_device = lambda tensor: tensor.to(device)
+    data_device = inputs.device
+    if data_device != labels.device:
+        raise ValueError(f"Inputs and labels need to be on the same device: {inputs.device=} != {labels.device=}")
+    model_device = next(model.parameters()).device
+    to_device = lambda tensor: tensor.to(model_device)
     targeted, adv_labels = False, labels
     if targets is not None:
         targeted, adv_labels = True, targets
@@ -109,7 +112,7 @@ def run_attack(model: nn.Module,
         average_backwards.append(backward_counter.num_samples_called / len(batch_chunk_d))
         forward_counter.reset(), backward_counter.reset()
 
-        advs_chunks.append(advs_chunk_d.cpu())
+        advs_chunks.append(advs_chunk_d.to(data_device))
         if isinstance(attack, partial) and (callback := attack.keywords.get('callback')) is not None:
             callback.reset_windows()
 
@@ -145,23 +148,24 @@ def compute_attack_metrics(model: nn.Module,
     if adv_inputs.min() < 0 or adv_inputs.max() > 1:
         warnings.warn('Values of produced adversarials are not in the [0, 1] range -> Clipping to [0, 1].')
         adv_inputs.clamp_(min=0, max=1)
-    device = next(model.parameters()).device
-    to_device = lambda tensor: tensor.to(device)
+    data_device = attack_data["inputs"].device
+    model_device = next(model.parameters()).device
+    to_device = lambda tensor: tensor.to(model_device)
 
     batch_size = batch_size or len(inputs)
     chunks = [tensor.split(batch_size) for tensor in [inputs, labels, adv_inputs]]
     all_predictions = [[] for _ in range(6)]
     distances = {k: [] for k in metrics.keys()}
-    metrics = {k: v().to(device) if (isclass(v.func) if isinstance(v, partial) else False) else v for k, v in
+    metrics = {k: v().to(model_device) if (isclass(v.func) if isinstance(v, partial) else False) else v for k, v in
                metrics.items()}
 
-    append = lambda list, data: list.append(data.cpu())
+    append = lambda list, data: list.append(data.to(data_device))
     for inputs_chunk, labels_chunk, adv_chunk in zip(*chunks):
         inputs_chunk, adv_chunk = map(to_device, [inputs_chunk, adv_chunk])
-        clean_preds, adv_preds = [predict_inputs(model, chunk.to(device)) for chunk in [inputs_chunk, adv_chunk]]
+        clean_preds, adv_preds = [predict_inputs(model, chunk.to(model_device)) for chunk in [inputs_chunk, adv_chunk]]
         list(map(append, all_predictions, [*clean_preds, *adv_preds]))
         for metric, metric_func in metrics.items():
-            distances[metric].append(metric_func(adv_chunk, inputs_chunk).detach().cpu())
+            distances[metric].append(metric_func(adv_chunk, inputs_chunk).detach().to(data_device))
 
     logits, probs, preds, logits_adv, probs_adv, preds_adv = [torch.cat(l) for l in all_predictions]
     for metric in metrics.keys():
@@ -209,14 +213,14 @@ def print_metrics(metrics: dict) -> None:
     print('Original accuracy: {:.2%}'.format(metrics['accuracy_orig']))
     print('Attack done in: {:.2f}s with {:.4g} forwards and {:.4g} backwards.'.format(
         metrics['time'], metrics['num_forwards'], metrics['num_backwards']))
-    success = metrics['success'].numpy()
+    success = metrics['success'].cpu().numpy()
     fail = bool(success.mean() != 1)
     print('Attack success: {:.2%}'.format(success.mean()) + fail * ' - {}'.format(success))
     for distance, values in metrics['distances'].items():
-        data = values.numpy()
+        data = values.cpu().numpy()
         print('{}: {} - Average: {:.3f} - Median: {:.3f}'.format(distance, data, data.mean(), np.median(data)) +
               fail * ' | Avg over success: {:.3f}'.format(data[success].mean()))
     attack_type = 'targets' if metrics['targeted'] else 'correct'
     print('Logit({} class) - max_Logit(other classes): {} - Average: {:.2f}'.format(
-        attack_type, metrics['logit_diff_adv'].numpy(), metrics['logit_diff_adv'].numpy().mean()))
-    print('NLL of target/pred class: {:.3f}'.format(metrics['nll_adv'].numpy().mean()))
+        attack_type, metrics['logit_diff_adv'].cpu().numpy(), metrics['logit_diff_adv'].cpu().numpy().mean()))
+    print('NLL of target/pred class: {:.3f}'.format(metrics['nll_adv'].cpu().numpy().mean()))
