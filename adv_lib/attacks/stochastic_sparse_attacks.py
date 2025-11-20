@@ -87,7 +87,9 @@ def fga(model: nn.Module,
 
         # add perturbation to inputs
         perturbed_inputs = inputs_.flatten(1).unsqueeze(1).repeat(1, n_samples, 1)
-        perturbed_inputs.scatter_add_(2, i_0.repeat_interleave(n_samples, dim=1).unsqueeze(2), S.unsqueeze(2))
+        perturbed_inputs.scatter_add_(
+            2, i_0.repeat_interleave(n_samples, dim=1, output_size=n_samples).unsqueeze(2), S.unsqueeze(2)
+        )
         perturbed_inputs.clamp_(min=0, max=1)
 
         # get probabilities for perturbed inputs
@@ -199,7 +201,9 @@ def vfga(model: nn.Module,
 
         # add perturbation to inputs
         perturbed_inputs = inputs_.flatten(1).unsqueeze(1).repeat(1, 2 * n_samples, 1)
-        i_plus_minus = torch.cat([i_plus, i_minus], dim=1).repeat_interleave(n_samples, dim=1)
+        i_plus_minus = torch.cat([i_plus, i_minus], dim=1).repeat_interleave(
+            n_samples, dim=1, output_size=2 * n_samples
+        )
         S_plus_minus = torch.cat([S_plus, S_minus], dim=1)
         perturbed_inputs.scatter_add_(2, i_plus_minus.unsqueeze(2), S_plus_minus.unsqueeze(2))
         perturbed_inputs.clamp_(min=0, max=1)
