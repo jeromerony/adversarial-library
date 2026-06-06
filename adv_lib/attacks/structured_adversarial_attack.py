@@ -232,7 +232,7 @@ def str_attack(model: nn.Module,
             adv_found = torch.zeros(batch_size, device=device, dtype=torch.bool)
 
             o_best_y = o_best_adv - inputs
-            np_o_best_y = o_best_y.cpu().numpy()
+            np_o_best_y = o_best_y.numpy(force=True)
             Nz = np.abs(np_o_best_y[np.nonzero(np_o_best_y)])
             threshold = np.percentile(Nz, σ)
 
