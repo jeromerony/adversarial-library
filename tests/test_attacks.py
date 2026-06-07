@@ -29,7 +29,7 @@ class Linear(nn.Module):
         return torch.cat([-logit, logit, torch.full_like(logit, -1)], dim=1)  # simulate multi-class
 
 
-_attacks_untargeted_minimal_l2_untargeted = (
+_attacks_untargeted_minimal_l2 = (
     partial(attacks.ddn, steps=30),
     partial(attacks.alma, num_steps=50),
     partial(attacks.df, steps=10),
@@ -43,7 +43,7 @@ _attacks_untargeted_minimal_l2_untargeted = (
 )
 
 
-@pytest.mark.parametrize('attack', _attacks_untargeted_minimal_l2_untargeted)
+@pytest.mark.parametrize('attack', _attacks_untargeted_minimal_l2)
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
 def test_untargeted_minimal_l2(attack: Callable, batch_size: int, dims: tuple[int]):
