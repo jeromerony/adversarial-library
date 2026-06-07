@@ -71,3 +71,35 @@ def test_untargeted_minimal_l2(attack: Callable, batch_size: int, dims: tuple[in
     ratio = adv_norm / best_norm
     logger.info(f"Ratio of adv norm over best: {ratio.numpy(force=True)}")
     assert (ratio <= 1.25).all()
+
+
+_attacks_untargeted_budget_l2 = (
+    (partial(attacks.apgd, norm=2, n_iter=10), 'eps'),
+)
+
+
+@pytest.mark.parametrize('attack,budget_kw', _attacks_untargeted_budget_l2)
+@pytest.mark.parametrize('batch_size', [1, 3, 8])
+@pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
+def test_untargeted_budget_l2(attack: Callable, budget_kw: str, batch_size: int, dims: tuple[int]):
+    torch.manual_seed(0)
+    model = Linear(input_dim=math.prod(dims))
+    inputs = torch.randn(batch_size, *dims).mul_(0.01).add_(0.55).clamp_(min=0, max=1)
+    labels = inputs.new_ones(batch_size, dtype=torch.long)
+
+    projection = model.project(inputs)
+    pred_projection = model(projection)[..., :2]
+    torch.testing.assert_close(pred_projection, torch.zeros_like(pred_projection))
+
+    budget = (projection - inputs).flatten(1).norm(p=2, dim=1).max().item() * 1.25
+
+    preds = model(inputs).argmax(dim=1)
+    torch.testing.assert_close(preds, labels)
+
+    kwargs = dict(model=model, inputs=inputs, labels=labels)
+    kwargs[budget_kw] = budget
+    adv_inputs = attack(**kwargs)
+    adv_preds = model(adv_inputs).argmax(dim=1)
+    assert (adv_preds != labels).all()
+    adv_norm = (adv_inputs - inputs).flatten(1).norm(p=2, dim=1)
+    assert (adv_norm <= budget * 1.01).all()
