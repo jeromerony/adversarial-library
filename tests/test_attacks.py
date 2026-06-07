@@ -1,5 +1,6 @@
 import math
 from functools import partial
+from typing import Callable
 
 import pytest
 import torch
@@ -28,24 +29,24 @@ class Linear(nn.Module):
         return torch.cat([-logit, logit, torch.full_like(logit, -1)], dim=1)  # simulate multi-class
 
 
-_attacks = {
-    'ddn': partial(attacks.ddn, steps=30),
-    'alma': partial(attacks.alma, num_steps=50),
-    'df': partial(attacks.df, steps=10),
-    'c&w': partial(attacks.carlini_wagner_l2, max_iterations=30),
-    'tr': partial(attacks.tr, iter=10, eps=0.1),
-    'fab': partial(attacks.fab, norm=2, n_iter=10),
-    'fmn': partial(attacks.fmn, norm=2, steps=10),
-    'pdgd': partial(attacks.pdgd, num_steps=200),
-    'pdpgd': partial(attacks.pdpgd, norm=2, num_steps=200),
-    'sdf': partial(attacks.sdf, steps=10),
-}
+_attacks = (
+    partial(attacks.ddn, steps=30),
+    partial(attacks.alma, num_steps=50),
+    partial(attacks.df, steps=10),
+    partial(attacks.carlini_wagner_l2, max_iterations=30),
+    partial(attacks.tr, iter=10, eps=0.1),
+    partial(attacks.fab, norm=2, n_iter=10),
+    partial(attacks.fmn, norm=2, steps=10),
+    partial(attacks.pdgd, num_steps=200),
+    partial(attacks.pdpgd, norm=2, num_steps=200),
+    partial(attacks.sdf, steps=10),
+)
 
 
-@pytest.mark.parametrize('attack', _attacks.keys())
+@pytest.mark.parametrize('attack', _attacks)
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
-def test_minimal_l2_attack(attack: str, batch_size: int, dims: tuple[int]):
+def test_minimal_l2_attack(attack: Callable, batch_size: int, dims: tuple[int]):
     torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.01).add_(0.55).clamp_(min=0, max=1)
@@ -54,7 +55,7 @@ def test_minimal_l2_attack(attack: str, batch_size: int, dims: tuple[int]):
     preds = model(inputs).argmax(dim=1)
     torch.testing.assert_close(preds, labels)
 
-    adv_inputs = _attacks[attack](model=model, inputs=inputs, labels=labels)
+    adv_inputs = attack(model=model, inputs=inputs, labels=labels)
     adv_preds = model(adv_inputs).argmax(dim=1)
     assert (adv_preds != labels).all()
 
