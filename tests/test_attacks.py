@@ -46,7 +46,7 @@ _attacks_untargeted_minimal_l2_untargeted = (
 @pytest.mark.parametrize('attack', _attacks_untargeted_minimal_l2_untargeted)
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
-def test_minimal_l2_attack(attack: Callable, batch_size: int, dims: tuple[int]):
+def test_untargeted_minimal_l2(attack: Callable, batch_size: int, dims: tuple[int]):
     torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.01).add_(0.55).clamp_(min=0, max=1)
