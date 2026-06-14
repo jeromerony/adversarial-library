@@ -66,8 +66,6 @@ def carlini_wagner_l2(model: nn.Module,
     batch_size = len(inputs)
     batch_view = lambda tensor: tensor.view(batch_size, *[1] * (inputs.ndim - 1))
     t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
-    if not targeted:  # gradient descent if untargeted, else ascent
-        learning_rate *= -1
 
     # set the lower and upper bounds accordingly
     c = torch.full((batch_size,), initial_const, device=device)
@@ -127,6 +125,8 @@ def carlini_wagner_l2(model: nn.Module,
             o_best_adv = torch.where(batch_view(o_is_both), adv_inputs.detach(), o_best_adv)
 
             logit_dists = difference_of_logits(logits, labels, labels_infhot=labels_infhot)
+            if targeted:
+                logit_dists = -logit_dists
             loss = l2_squared + c * (logit_dists + confidence).clamp_(min=0)
 
             # check if we should abort search if we're getting nowhere.
@@ -141,7 +141,7 @@ def carlini_wagner_l2(model: nn.Module,
             bias_correction1 = 1 - β_1 ** (i + 1)
             bias_correction2 = 1 - β_2 ** (i + 1)
             denom = exp_avg_sq.sqrt().div_(math.sqrt(bias_correction2)).add_(1e-8)
-            modifier.data.addcdiv_(exp_avg, denom, value=learning_rate / bias_correction1)
+            modifier.data.addcdiv_(exp_avg, denom, value=-learning_rate / bias_correction1)
 
             if callback:
                 i_total += 1

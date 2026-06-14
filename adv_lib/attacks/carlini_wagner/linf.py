@@ -68,8 +68,6 @@ def carlini_wagner_linf(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
-    if not targeted:
-        learning_rate *= -1
 
     # set modifier and the parameters used in the optimization
     modifier = torch.zeros_like(inputs)
