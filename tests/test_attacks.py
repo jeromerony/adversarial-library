@@ -13,6 +13,11 @@ from adv_lib import attacks
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def seed_torch():
+    torch.manual_seed(0)
+
+
 class Linear(nn.Module):
     def __init__(self, input_dim: int):
         super().__init__()
@@ -30,7 +35,7 @@ class Linear(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         logit = self.logit(x)
         neg_logit = torch.full_like(logit, -1)
-        return torch.cat([-logit, logit, neg_logit, 2*neg_logit], dim=1)  # simulate multi-class
+        return torch.cat([-logit, logit, neg_logit, 2 * neg_logit], dim=1)  # simulate multi-class
 
 
 _attacks_untargeted_minimal_l2 = (
@@ -51,7 +56,6 @@ _attacks_untargeted_minimal_l2 = (
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
 def test_untargeted_minimal_l2(attack: Callable, batch_size: int, dims: tuple[int]):
-    torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.03).add_(0.75).clamp_(min=0, max=1)
     labels = inputs.new_ones(batch_size, dtype=torch.long)
@@ -88,7 +92,6 @@ _attacks_targeted_minimal_l2 = (
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
 def test_targeted_minimal_l2(attack: Callable, batch_size: int, dims: tuple[int]):
-    torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.03).add_(0.75).clamp_(min=0, max=1)
     labels = inputs.new_ones(batch_size, dtype=torch.long)
@@ -121,7 +124,6 @@ _attacks_untargeted_budget_l2 = (
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
 def test_untargeted_budget_l2(attack: Callable, budget_kw: str, batch_size: int, dims: tuple[int]):
-    torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.01).add_(0.75).clamp_(min=0, max=1)
     labels = inputs.new_ones(batch_size, dtype=torch.long)
@@ -153,7 +155,6 @@ _attacks_targeted_budget_l2 = (
 @pytest.mark.parametrize('batch_size', [1, 3, 8])
 @pytest.mark.parametrize('dims', ((8,), (4, 6), (5, 7, 7)))
 def test_targeted_budget_l2(attack: Callable, budget_kw: str, batch_size: int, dims: tuple[int]):
-    torch.manual_seed(0)
     model = Linear(input_dim=math.prod(dims))
     inputs = torch.randn(batch_size, *dims).mul_(0.01).add_(0.75).clamp_(min=0, max=1)
     labels = inputs.new_ones(batch_size, dtype=torch.long)
