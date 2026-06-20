@@ -213,14 +213,14 @@ def print_metrics(metrics: dict) -> None:
     print('Original accuracy: {:.2%}'.format(metrics['accuracy_orig']))
     print('Attack done in: {:.2f}s with {:.4g} forwards and {:.4g} backwards.'.format(
         metrics['time'], metrics['num_forwards'], metrics['num_backwards']))
-    success = metrics['success'].cpu().numpy()
+    success = metrics['success'].numpy(force=True)
     fail = bool(success.mean() != 1)
     print('Attack success: {:.2%}'.format(success.mean()) + fail * ' - {}'.format(success))
     for distance, values in metrics['distances'].items():
-        data = values.cpu().numpy()
+        data = values.numpy(force=True)
         print('{}: {} - Average: {:.3f} - Median: {:.3f}'.format(distance, data, data.mean(), np.median(data)) +
               fail * ' | Avg over success: {:.3f}'.format(data[success].mean()))
     attack_type = 'targets' if metrics['targeted'] else 'correct'
     print('Logit({} class) - max_Logit(other classes): {} - Average: {:.2f}'.format(
-        attack_type, metrics['logit_diff_adv'].cpu().numpy(), metrics['logit_diff_adv'].cpu().numpy().mean()))
-    print('NLL of target/pred class: {:.3f}'.format(metrics['nll_adv'].cpu().numpy().mean()))
+        attack_type, metrics['logit_diff_adv'].numpy(force=True), metrics['logit_diff_adv'].numpy(force=True).mean()))
+    print('NLL of target/pred class: {:.3f}'.format(metrics['nll_adv'].numpy(force=True).mean()))

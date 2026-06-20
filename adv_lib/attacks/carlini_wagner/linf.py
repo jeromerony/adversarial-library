@@ -68,8 +68,6 @@ def carlini_wagner_linf(model: nn.Module,
     device = inputs.device
     batch_size = len(inputs)
     t_inputs = (inputs * 2).sub_(1).mul_(1 - 1e-6).atanh_()
-    if not targeted:
-        learning_rate *= -1
 
     # set modifier and the parameters used in the optimization
     modifier = torch.zeros_like(inputs)
@@ -125,6 +123,8 @@ def carlini_wagner_linf(model: nn.Module,
             best_adv = torch.where(batch_view(is_both), adv_inputs.detach(), best_adv)
 
             logit_dists = difference_of_logits(logits, labels_, labels_infhot=labels_infhot)
+            if targeted:
+                logit_dists = -logit_dists
             linf_loss = (adv_inputs - inputs_).abs_().sub_(batch_view(τ_)).clamp_(min=0).flatten(1).sum(1)
             loss = linf_loss + c_ * logit_dists.clamp_(min=0)
 
@@ -138,7 +138,7 @@ def carlini_wagner_linf(model: nn.Module,
             bias_correction1 = 1 - β_1 ** (i + 1)
             bias_correction2 = 1 - β_2 ** (i + 1)
             denom = exp_avg_sq.sqrt().div_(math.sqrt(bias_correction2)).add_(1e-8)
-            modifier_.data.addcdiv_(exp_avg, denom, value=learning_rate / bias_correction1)
+            modifier_.data.addcdiv_(exp_avg, denom, value=-learning_rate / bias_correction1)
 
             if callback:
                 callback.accumulate_line('logit_dist', total_iters, logit_dists.mean())
