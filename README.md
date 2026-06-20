@@ -22,7 +22,7 @@ The goal of this library is to be up-to-date with newer versions of PyTorch so t
 
 You can either install using:
 
-```pip install git+https://github.com/jeromerony/adversarial-library```
+```pip install adv-lib```
 
 Or you can clone the repo and run:
 
